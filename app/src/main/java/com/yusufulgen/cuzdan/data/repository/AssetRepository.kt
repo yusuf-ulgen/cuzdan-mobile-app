@@ -52,6 +52,14 @@ constructor(
         private val portfolioDao: PortfolioDao,
         private val priceAlertDao: PriceAlertDao
 ) {
+    // Memory cache for historical data to prevent rate limiting
+    private data class CachedHistory(
+        val data: List<Pair<Long, Double>>,
+        val timestamp: Long
+    )
+    private val historyCache = mutableMapOf<String, CachedHistory>()
+    private val CACHE_EXPIRATION_MS = 10 * 1000 // 10 seconds cache (User request)
+
     private var bistJob: Job? = null
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val gson = Gson()
@@ -206,149 +214,93 @@ constructor(
         val TAG = "CUZDAN_LOG"
         emit(Resource.Loading())
         try {
-            val otherAssets = getOtherAssets().first()
-            Log.d(
-                    TAG,
-                    ">>> Refresh Yahoo Prices Started (v8-parallel). Total local assets: ${otherAssets.size}"
-            )
-
-            if (otherAssets.isEmpty()) {
-                Log.d(TAG, "No assets found in DB, adding defaults...")
-                val defaultOther =
-                        listOf(
-                                Asset(
-                                        symbol = "THYAO",
-                                        name = "Türk Hava Yolları",
-                                        amount = BigDecimal.ZERO,
-                                        averageBuyPrice = BigDecimal.ZERO,
-                                        currentPrice = BigDecimal.ZERO,
-                                        dailyChangePercentage = BigDecimal.ZERO,
-                                        assetType = AssetType.BIST
-                                ),
-                                Asset(
-                                        symbol = "USD",
-                                        name = "Amerikan Doları",
-                                        amount = BigDecimal.ZERO,
-                                        averageBuyPrice = BigDecimal.ZERO,
-                                        currentPrice = BigDecimal.ZERO,
-                                        dailyChangePercentage = BigDecimal.ZERO,
-                                        assetType = AssetType.DOVIZ
-                                ),
-                                Asset(
-                                        symbol = "GOLD",
-                                        name = "Altın (Ons)",
-                                        amount = BigDecimal.ZERO,
-                                        averageBuyPrice = BigDecimal.ZERO,
-                                        currentPrice = BigDecimal.ZERO,
-                                        dailyChangePercentage = BigDecimal.ZERO,
-                                        assetType = AssetType.EMTIA
-                                ),
-                                Asset(
-                                        symbol = "GRAM_ALTIN",
-                                        name = "Gram Altın",
-                                        amount = BigDecimal.ZERO,
-                                        averageBuyPrice = BigDecimal.ZERO,
-                                        currentPrice = BigDecimal.ZERO,
-                                        dailyChangePercentage = BigDecimal.ZERO,
-                                        assetType = AssetType.EMTIA
-                                )
-                        )
-                defaultOther.forEach { assetDao.insertAsset(it) }
+            val currentOtherAssets = getOtherAssets().first()
+            if (currentOtherAssets.isEmpty()) {
+                emit(Resource.Success(Unit))
+                return@flow
             }
 
-            val currentOtherAssets = getOtherAssets().first()
-            val symbolMap =
-                    currentOtherAssets.filter { it.symbol != "GRAM_ALTIN" }.associate {
-                        it.symbol to toYahooSymbol(it.symbol, it.assetType)
-                    }
-            val symbolsToFetch = symbolMap.values.toMutableList()
+            // 1. Prepare symbols for batch request
+            val symbolMap = currentOtherAssets.filter { it.symbol != "GRAM_ALTIN" }.associate {
+                it.symbol to toYahooSymbol(it.symbol, it.assetType)
+            }
             
+            val symbolsToFetch = symbolMap.values.toMutableList()
             if (currentOtherAssets.any { it.symbol == "GRAM_ALTIN" }) {
                 if (!symbolsToFetch.contains("GC=F")) symbolsToFetch.add("GC=F")
                 if (!symbolsToFetch.contains("USDTRY=X")) symbolsToFetch.add("USDTRY=X")
             }
             
-            val distinctSymbolsToFetch = symbolsToFetch.distinct()
-            Log.d(TAG, "Requesting parallel chart data for: $distinctSymbolsToFetch")
+            val batchQuery = symbolsToFetch.distinct().joinToString(",")
+            Log.d(TAG, ">>> Batch Refreshing Yahoo Prices: $batchQuery")
 
-            if (distinctSymbolsToFetch.isNotEmpty()) {
-                // Fetch all symbols in parallel using the more reliable chart endpoint
-                val marketAssetsResultsMap = coroutineScope {
-                    distinctSymbolsToFetch
-                            .map { sym ->
-                                async {
-                                    try {
-                                        val originalAsset =
-                                                currentOtherAssets.find {
-                                                    toYahooSymbol(it.symbol, it.assetType) == sym
-                                                }
-                                        
-                                        val typeToUse = originalAsset?.assetType ?: when(sym) {
-                                            "USDTRY=X" -> AssetType.DOVIZ
-                                            "GC=F", "GOLD" -> AssetType.EMTIA
-                                            else -> AssetType.BIST
-                                        }
+            // 2. Single batch request instead of parallel chart calls
+            val quoteResponse = try {
+                yahooFinanceApi.getQuotes(batchQuery)
+            } catch (e: Exception) {
+                Log.e(TAG, "Batch quote request failed: ${e.message}")
+                null
+            }
 
-                                        val ma = fetchYahooMarketAsset(sym, typeToUse)
-                                        if (ma != null) sym to ma else null
-                                    } catch (e: Exception) {
-                                        Log.e(TAG, "Parallel fetch failed for $sym: ${e.message}")
-                                        null
-                                    }
-                                }
-                            }
-                            .awaitAll()
-                            .filterNotNull()
-                            .toMap()
-                }
+            val results = quoteResponse?.quoteResponse?.result ?: emptyList()
+            val marketAssetsResultsMap = results.associateBy { it.symbol }
 
-                Log.d(TAG, "Received ${marketAssetsResultsMap.size} market asset results.")
+            Log.d(TAG, "Received ${results.size} batch results.")
 
-                var onsPrice: BigDecimal? = null
-                var usdTryPrice: BigDecimal? = null
-                var onsChange: BigDecimal = BigDecimal.ZERO
-                var usdTryChange: BigDecimal = BigDecimal.ZERO
+            var onsPrice: BigDecimal? = null
+            var usdTryPrice: BigDecimal? = null
+            var onsChange: BigDecimal = BigDecimal.ZERO
+            var usdTryChange: BigDecimal = BigDecimal.ZERO
 
-                val updatedAssets = mutableListOf<Asset>()
-                currentOtherAssets.forEach { asset ->
-                    if (asset.symbol == "GRAM_ALTIN") return@forEach
-                    val yahooSymbol = symbolMap[asset.symbol]
-                    val marketAsset = marketAssetsResultsMap[yahooSymbol]
+            val updatedAssets = mutableListOf<Asset>()
+            currentOtherAssets.forEach { asset ->
+                if (asset.symbol == "GRAM_ALTIN") return@forEach
+                val yahooSymbol = symbolMap[asset.symbol]
+                val q = marketAssetsResultsMap[yahooSymbol]
 
-                    if (marketAsset != null) {
-                        Log.d(
-                                TAG,
-                                "[MATCH] Asset: ${asset.symbol} -> Price: ${marketAsset.currentPrice} ${marketAsset.currency} | Change: ${marketAsset.dailyChangePercentage}%"
-                        )
+                if (q != null) {
+                    val current = q.regularMarketPrice ?: BigDecimal.ZERO
+                    val change = q.regularMarketChangePercent ?: BigDecimal.ZERO
 
-                        if (yahooSymbol == "GC=F" || yahooSymbol == "GOLD") {
-                            onsPrice = marketAsset.currentPrice
-                            onsChange = marketAsset.dailyChangePercentage
-                        }
-                        if (yahooSymbol == "USDTRY=X") {
-                            usdTryPrice = marketAsset.currentPrice
-                            usdTryChange = marketAsset.dailyChangePercentage
-                        }
-
-                        updatedAssets.add(
-                                asset.copy(
-                                        currentPrice = marketAsset.currentPrice,
-                                        dailyChangePercentage = marketAsset.dailyChangePercentage,
-                                        currency = marketAsset.currency
-                                )
-                        )
-                    } else {
-                        Log.w(
-                                TAG,
-                                "[MISS] No data for asset: ${asset.symbol} (Yahoo: $yahooSymbol)"
-                        )
+                    if (yahooSymbol == "GC=F") {
+                        onsPrice = current
+                        onsChange = change
                     }
-                }
+                    if (yahooSymbol == "USDTRY=X") {
+                        usdTryPrice = current
+                        usdTryChange = change
+                    }
 
-                // Update MarketAsset table for ALL results fetched (not just portfolio assets)
-                marketAssetsResultsMap.values.forEach { marketAsset ->
-                    marketAssetDao.insertMarketAsset(marketAsset)
+                    updatedAssets.add(
+                        asset.copy(
+                            currentPrice = current,
+                            dailyChangePercentage = change,
+                            currency = q.currency ?: "USD"
+                        )
+                    )
+                    
+                    // Also update MarketAsset table for search/market screen
+                    val exist = marketAssetDao.getMarketAssetBySymbolAndTypeOnce(asset.symbol, asset.assetType)
+                    cleanMarketAssetNaming(
+                        MarketAsset(
+                            symbol = asset.symbol,
+                            name = q.shortName ?: q.longName ?: asset.name,
+                            fullName = q.longName ?: q.shortName ?: asset.name,
+                            currentPrice = current.setScale(4, RoundingMode.HALF_UP),
+                            dailyChangePercentage = change,
+                            assetType = asset.assetType,
+                            currency = q.currency ?: "USD",
+                            isFavorite = exist?.isFavorite ?: false,
+                            lastUpdated = System.currentTimeMillis(),
+                            chartDataJson = exist?.chartDataJson // Preserve existing chart data
+                        ),
+                        asset.assetType
+                    ).let { marketAssetDao.insertMarketAsset(it) }
+
                 }
+            }
+
+            
 
                 // 4. Calculate Gram Gold separately with accurate Change %
                 // Force change to 0 on weekends/holidays - markets are closed
@@ -416,7 +368,7 @@ constructor(
                 if (updatedAssets.isNotEmpty()) {
                     assetDao.updateAssets(updatedAssets)
                 }
-            }
+
             Log.d(TAG, "<<< Refresh Yahoo Prices Finished Successfully")
             emit(Resource.Success(Unit))
         } catch (e: Exception) {
@@ -892,10 +844,6 @@ constructor(
                                                 var finalChange =
                                                         change?.setScale(2, RoundingMode.HALF_UP)
                                                                 ?: BigDecimal.ZERO
-                                                
-                                                if (com.yusufulgen.cuzdan.util.MarketStatusUtils.isMarketClosedToday(type)) {
-                                                    finalChange = BigDecimal.ZERO
-                                                }
 
                                                 if (type == AssetType.DOVIZ &&
                                                                 sym != "USDTRY=X" &&
@@ -1016,7 +964,7 @@ constructor(
                                     ons.currentPrice
                                             .divide(BigDecimal("31.1035"), 8, RoundingMode.HALF_UP)
                                             .multiply(usdTryPrice)
-                            val gramAltinChange = if (emtiaMarketClosed) BigDecimal.ZERO else ons.dailyChangePercentage
+                            val gramAltinChange = ons.dailyChangePercentage
                             marketAssets.add(
                                     MarketAsset(
                                             "GRAM_ALTIN",
@@ -1048,7 +996,7 @@ constructor(
                             val sp = silverOns.currentPrice
                                     .divide(BigDecimal("31.1035"), 8, RoundingMode.HALF_UP)
                                     .multiply(usdTryPrice)
-                            val gramGumusChange = if (emtiaMarketClosed) BigDecimal.ZERO else silverOns.dailyChangePercentage
+                            val gramGumusChange = silverOns.dailyChangePercentage
                             marketAssets.add(
                                     MarketAsset(
                                             "GRAM_GUMUS",
@@ -1308,8 +1256,19 @@ constructor(
         else assetDao.insertAsset(asset)
     }
 
+    /**
+     * Get historical price data for a symbol.
+     * Implements a fallback logic: if requested range is empty (e.g. market closed),
+     * it tries broader ranges to show the last available state.
+     */
+    /**
+     * Get historical price data for a symbol.
+     * Implements a fallback logic: if requested range is empty (e.g. market closed),
+     * it tries broader ranges and lower intervals to show the last available state.
+     */
     suspend fun getAssetHistory(
             symbol: String,
+            assetType: com.yusufulgen.cuzdan.data.local.entity.AssetType? = null,
             range: String = "1d",
             interval: String = "1m"
     ): List<Pair<Long, Double>> {
@@ -1319,52 +1278,80 @@ constructor(
                     System.currentTimeMillis() to 1.0
             )
         }
+        val cacheKey = "${symbol}_${range}_${interval}"
+        val cached = historyCache[cacheKey]
+        // 3 seconds cache: Long enough to stop infinite loops, short enough to feel "live" on every entry
+        if (cached != null && System.currentTimeMillis() - cached.timestamp < 3000) {
+            return cached.data
+        }
 
+        // 1. Try requested range/interval
+        var history = fetchYahooHistoryData(symbol, assetType, range, interval)
+        
+        // 1b. If it failed and was 1m, try 5m immediately
+        if (history.isEmpty() && interval == "1m") {
+            history = fetchYahooHistoryData(symbol, assetType, range, "5m")
+        }
+        
+        // 2. Fallback for weekend/closed market: Jump straight to 5d/15m
+        if (history.isEmpty() && range == "1d") {
+            history = fetchYahooHistoryData(symbol, assetType, "5d", "15m")
+        }
+        
+        // 3. Last resort fallback (1 month history)
+        if (history.isEmpty() && (range == "1d" || range == "5d")) {
+            history = fetchYahooHistoryData(symbol, assetType, "1mo", "1d")
+        }
+
+        // 4. PERSISTENCE: If still empty, try to load from DB
+        if (history.isEmpty() && assetType != null) {
+            val marketAsset = marketAssetDao.getMarketAssetBySymbolAndTypeOnce(symbol, assetType)
+            val savedJson = marketAsset?.chartDataJson
+            if (!savedJson.isNullOrEmpty()) {
+                try {
+                    val type = object : com.google.gson.reflect.TypeToken<List<Pair<Long, Double>>>() {}.type
+                    history = gson.fromJson(savedJson, type)
+                } catch (_: Exception) {}
+            }
+        } else if (history.isNotEmpty() && assetType != null) {
+            // Save successful history to DB for future fallback
+            try {
+                val json = gson.toJson(history)
+                marketAssetDao.updateChartData(symbol, assetType, json)
+            } catch (_: Exception) {}
+        }
+
+        if (history.isNotEmpty()) {
+            historyCache[cacheKey] = CachedHistory(history, System.currentTimeMillis())
+        }
+        return history
+    }
+
+    private suspend fun fetchYahooHistoryData(
+        symbol: String,
+        assetType: com.yusufulgen.cuzdan.data.local.entity.AssetType?,
+        range: String,
+        interval: String
+    ): List<Pair<Long, Double>> {
         // Special synthetic symbol: Gram Altın (TRY) = (Ons Altın (USD) / 31.1) * USDTRY
         if (symbol.uppercase() == "GRAM_ALTIN") {
             return try {
-                val ons =
-                        yahooFinanceApi
-                                .getChartData("GC=F", range, interval)
-                                .chart
-                                .result
-                                ?.firstOrNull()
-                val usdTry =
-                        yahooFinanceApi
-                                .getChartData("TRY=X", range, interval)
-                                .chart
-                                .result
-                                ?.firstOrNull()
+                val onsData = fetchYahooHistoryData("GC=F", null, range, interval)
+                val usdTryData = fetchYahooHistoryData("TRY=X", null, range, interval)
 
-                val onsTs = ons?.timestamp ?: emptyList()
-                val onsPrices = ons?.indicators?.quote?.firstOrNull()?.close ?: emptyList()
-                val usdTs = usdTry?.timestamp ?: emptyList()
-                val usdPrices = usdTry?.indicators?.quote?.firstOrNull()?.close ?: emptyList()
+                if (onsData.isEmpty() || usdTryData.isEmpty()) return emptyList()
 
-                if (onsTs.isEmpty() || usdTs.isEmpty()) return emptyList()
-
-                val onsSeries =
-                        onsTs.zip(onsPrices).mapNotNull { (ts, p) ->
-                            p?.let { ts * 1000 to it.toDouble() }
-                        }
-                val usdSeries =
-                        usdTs.zip(usdPrices).mapNotNull { (ts, p) ->
-                            p?.let { ts * 1000 to it.toDouble() }
-                        }
-
-                if (onsSeries.isEmpty() || usdSeries.isEmpty()) return emptyList()
-
-                val allTs =
-                        (onsSeries.map { it.first } + usdSeries.map { it.first })
-                                .distinct()
-                                .sorted()
+                val allTs = (onsData.map { it.first } + usdTryData.map { it.first })
+                    .distinct()
+                    .sorted()
+                
                 fun lastValueAt(series: List<Pair<Long, Double>>, t: Long): Double? =
-                        series.lastOrNull { it.first <= t }?.second ?: series.firstOrNull()?.second
+                    series.lastOrNull { it.first <= t }?.second ?: series.firstOrNull()?.second
 
                 val ozToGram = 31.1
                 allTs.mapNotNull { t ->
-                    val onsP = lastValueAt(onsSeries, t)
-                    val usdP = lastValueAt(usdSeries, t)
+                    val onsP = lastValueAt(onsData, t)
+                    val usdP = lastValueAt(usdTryData, t)
                     if (onsP == null || usdP == null) null else t to (onsP / ozToGram) * usdP
                 }
             } catch (_: Exception) {
@@ -1374,39 +1361,35 @@ constructor(
 
         return try {
             val clean = symbol.uppercase()
-            val target =
+            val target = when (assetType) {
+                com.yusufulgen.cuzdan.data.local.entity.AssetType.KRIPTO -> {
                     when {
-                        // Binance-style symbols stored as e.g. BTCUSDT, ETHUSDT...
                         clean.endsWith("USDT") && clean.length > 4 -> "${clean.dropLast(4)}-USD"
-                        // Common crypto tickers without suffix
-                        !clean.contains(".") &&
-                                !clean.contains("=X") &&
-                                !clean.contains("-USD") &&
-                                clean.all { it.isLetterOrDigit() } &&
-                                clean.length in 2..6 -> "$clean-USD"
-                        // BIST tickers should use .IS, but avoid forcing it for synthetic/other
-                        // symbols
-                        !clean.contains(".") &&
-                                !clean.contains("=X") &&
-                                !clean.contains("-USD") &&
-                                clean.all { it.isUpperCase() || it.isDigit() } &&
-                                !clean.contains("_") -> "$clean.IS"
-                        else -> symbol
+                        clean.endsWith("-USD") -> clean
+                        else -> "$clean-USD"
                     }
+                }
+                com.yusufulgen.cuzdan.data.local.entity.AssetType.BIST -> {
+                    if (clean.endsWith(".IS")) clean else "$clean.IS"
+                }
+                // DOVIZ, EMTIA, NAKIT, FON, null → use symbol as-is (already correct format)
+                else -> symbol
+            }
 
-            val result =
-                    yahooFinanceApi
-                            .getChartData(target, range, interval)
-                            .chart
-                            .result
-                            ?.firstOrNull()
-            val timestamps = result?.timestamp ?: emptyList()
-            val prices = result?.indicators?.quote?.firstOrNull()?.close ?: emptyList()
-            timestamps.zip(prices).mapNotNull { (ts, p) -> p?.let { ts * 1000 to it.toDouble() } }
+            val result = yahooFinanceApi.getChartData(target, range, interval)
+                .chart.result?.firstOrNull() ?: return emptyList()
+            
+            val timestamps = result.timestamp ?: emptyList()
+            val prices = result.indicators?.quote?.firstOrNull()?.close ?: emptyList()
+            
+            timestamps.zip(prices).mapNotNull { (ts, p) -> 
+                p?.let { ts * 1000 to it.toDouble() } 
+            }
         } catch (_: Exception) {
             emptyList()
         }
     }
+
 
     suspend fun getPortfolioById(id: Long) = portfolioDao.getPortfolioById(id)
     suspend fun getAssetBySymbolAndPortfolioId(s: String, pId: Long): Asset? =
@@ -1476,11 +1459,11 @@ constructor(
                 val histories =
                         assets
                                 .map { a ->
-                                    async { a to getAssetHistory(a.symbol, range, interval) }
+                                    async { a to getAssetHistory(a.symbol, assetType = a.assetType, range = range, interval = interval) }
                                 }
                                 .awaitAll()
-                val usdHistory = getAssetHistory("USDTRY=X", range, interval)
-                val eurHistory = getAssetHistory("EURTRY=X", range, interval)
+                val usdHistory = getAssetHistory("USDTRY=X", assetType = null, range = range, interval = interval)
+                val eurHistory = getAssetHistory("EURTRY=X", assetType = null, range = range, interval = interval)
                 val allTs =
                         (histories.flatMap { it.second.map { p -> p.first } } +
                                         usdHistory.map { it.first } +
@@ -1870,9 +1853,7 @@ constructor(
                             } else BigDecimal.ZERO
                 }
                 
-                if (com.yusufulgen.cuzdan.util.MarketStatusUtils.isMarketClosedToday(type)) {
-                    change = BigDecimal.ZERO
-                }
+
 
                 Log.d(
                         "CUZDAN_LOG",

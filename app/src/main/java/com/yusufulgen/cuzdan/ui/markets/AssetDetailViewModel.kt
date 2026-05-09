@@ -23,6 +23,7 @@ enum class TransactionType { BUY, SELL }
 data class AssetDetailUiState(
     val symbol: String = "",
     val name: String = "",
+    val assetType: AssetType = AssetType.BIST,
     val currentPrice: BigDecimal = BigDecimal.ZERO,
     val dailyChangePercentage: BigDecimal = BigDecimal.ZERO,
     val currency: String = "TRY",
@@ -56,11 +57,11 @@ class AssetDetailViewModel @Inject constructor(
         val type = try { AssetType.valueOf(typeString) } catch (e: Exception) { AssetType.BIST }
         val displayCurrency = when(type) {
             AssetType.KRIPTO -> prefManager.getCryptoCurrency()
-            AssetType.EMTIA -> prefManager.getCryptoCurrency() // Shared for now or add getCommodityCurrency
+            AssetType.EMTIA -> prefManager.getCryptoCurrency()
             else -> currency
         }
 
-        _uiState.update { it.copy(symbol = symbol, name = name, currency = currency, displayCurrency = displayCurrency) }
+        _uiState.update { it.copy(symbol = symbol, name = name, assetType = type, currency = currency, displayCurrency = displayCurrency) }
         loadHistory(symbol)
         observeCurrentPrice(symbol)
         loadExistingAsset(symbol)
@@ -119,7 +120,8 @@ class AssetDetailViewModel @Inject constructor(
     private fun loadHistory(symbol: String, range: String = "1d", interval: String = "1m") {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            val history = repository.getAssetHistory(symbol, range, interval)
+            val assetType = _uiState.value.assetType
+            val history = repository.getAssetHistory(symbol, assetType, range, interval)
             
             val convertedHistory = if (_uiState.value.displayCurrency == "TL" && (_uiState.value.currency == "USD" || _uiState.value.symbol.endsWith("USDT") || _uiState.value.symbol.endsWith("=F"))) {
                 history.map { it.first to (it.second * usdRate.toDouble()) }

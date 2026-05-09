@@ -50,6 +50,9 @@ interface MarketAssetDao {
     @Query("UPDATE market_assets SET isFavorite = :isFav WHERE symbol = :symbol AND assetType = :type")
     suspend fun updateFavorite(symbol: String, type: AssetType, isFav: Boolean)
 
+    @Query("UPDATE market_assets SET chartDataJson = :json WHERE symbol = :symbol AND assetType = :type")
+    suspend fun updateChartData(symbol: String, type: AssetType, json: String)
+
     @Query("SELECT * FROM market_assets WHERE assetType = :type AND isFavorite = 1 ORDER BY name ASC")
     fun getFavoritesByType(type: AssetType): kotlinx.coroutines.flow.Flow<List<MarketAsset>>
 

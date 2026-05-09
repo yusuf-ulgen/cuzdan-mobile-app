@@ -14,6 +14,7 @@ data class MarketAsset(
     val assetType: AssetType,
     val currency: String = "TRY",
     val isFavorite: Boolean = false,
-    val lastUpdated: Long = System.currentTimeMillis()
+    val lastUpdated: Long = System.currentTimeMillis(),
+    val chartDataJson: String? = null
 )
 

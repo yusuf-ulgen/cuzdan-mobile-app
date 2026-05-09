@@ -462,7 +462,7 @@ class HomeViewModel @Inject constructor(
                 val finalCostRate = costRate.divide(exchangeRate, 12, RoundingMode.HALF_UP)
                 
                 var adjustedDailyPerc = asset.dailyChangePercentage
-                if (asset.assetType == AssetType.BIST && isBistClosedForToday) {
+                if (com.yusufulgen.cuzdan.util.MarketStatusUtils.isMarketClosedToday(asset.assetType)) {
                     adjustedDailyPerc = BigDecimal.ZERO
                 }
 

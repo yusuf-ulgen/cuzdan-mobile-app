@@ -44,6 +44,12 @@ val MIGRATION_13_14 = object : Migration(13, 14) {
     }
 }
 
+val MIGRATION_14_15 = object : Migration(14, 15) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE market_assets ADD COLUMN chartDataJson TEXT")
+    }
+}
+
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
@@ -56,7 +62,7 @@ object DatabaseModule {
             AppDatabase::class.java,
             "cuzdan_db"
         )
-        .addMigrations(MIGRATION_5_6, MIGRATION_8_9, MIGRATION_10_11, MIGRATION_13_14)
+        .addMigrations(MIGRATION_5_6, MIGRATION_8_9, MIGRATION_10_11, MIGRATION_13_14, MIGRATION_14_15)
         .fallbackToDestructiveMigration()
         .build()
     }
