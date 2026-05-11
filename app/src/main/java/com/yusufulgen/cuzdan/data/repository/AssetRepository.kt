@@ -338,31 +338,31 @@ constructor(
                             "Gram Gold Calc: Ons($onsPrice) / 31.1035 * USDTRY($usdTryPrice) = $gramGoldPrice | Change: $gramGoldChange% (marketClosed=$gramMarketClosed)"
                     )
 
-                    assetDao.getAssetBySymbol("GRAM_ALTIN")?.let { asset ->
+                    assetDao.getAssetsBySymbolOnce("GRAM_ALTIN").forEach { asset ->
                         updatedAssets.add(
                                 asset.copy(
                                         currentPrice = gramGoldPrice,
                                         dailyChangePercentage = gramGoldChange
                                 )
                         )
-
-                        // Also update MarketAsset table for Gram Gold consistency
-                        val gramMarket =
-                                marketAssetDao.getMarketAssetBySymbolAndTypeOnce(
-                                        "GRAM_ALTIN",
-                                        AssetType.EMTIA
-                                )
-                        if (gramMarket != null) {
-                            marketAssetDao.insertMarketAsset(
-                                    gramMarket.copy(
-                                            currentPrice = gramGoldPrice,
-                                            dailyChangePercentage = gramGoldChange,
-                                            lastUpdated = System.currentTimeMillis()
-                                    )
-                            )
-                        }
-                        Log.d(TAG, "Gram Gold updated in DB.")
                     }
+
+                    // Also update MarketAsset table for Gram Gold consistency
+                    val gramMarket =
+                            marketAssetDao.getMarketAssetBySymbolAndTypeOnce(
+                                    "GRAM_ALTIN",
+                                    AssetType.EMTIA
+                            )
+                    if (gramMarket != null) {
+                        marketAssetDao.insertMarketAsset(
+                                gramMarket.copy(
+                                        currentPrice = gramGoldPrice,
+                                        dailyChangePercentage = gramGoldChange,
+                                        lastUpdated = System.currentTimeMillis()
+                                )
+                        )
+                    }
+                    Log.d(TAG, "Gram Gold updated in DB for all portfolios.")
                 }
 
                 if (updatedAssets.isNotEmpty()) {
@@ -964,7 +964,17 @@ constructor(
                                     ons.currentPrice
                                             .divide(BigDecimal("31.1035"), 8, RoundingMode.HALF_UP)
                                             .multiply(usdTryPrice)
-                            val gramAltinChange = ons.dailyChangePercentage
+                            
+                            // Gram Gold Change % = ((1 + OnsChange/100) * (1 + UsdTryChange/100) - 1) * 100
+                            // Note: We need the USDTRY change here. 'ons' has its change, but we need USDTRY change too.
+                            // Since we might not have a MarketAsset for USDTRY in the same list, we can look it up or use the one from DB.
+                            val usdAsset = marketAssets.find { it.symbol == "USDTRY=X" } ?: marketAssetDao.getMarketAssetBySymbolAndTypeOnce("USDTRY=X", AssetType.DOVIZ)
+                            val usdChange = usdAsset?.dailyChangePercentage ?: BigDecimal.ZERO
+                            
+                            val onsFactor = BigDecimal.ONE.add(ons.dailyChangePercentage.divide(BigDecimal("100"), 8, RoundingMode.HALF_UP))
+                            val usdFactor = BigDecimal.ONE.add(usdChange.divide(BigDecimal("100"), 8, RoundingMode.HALF_UP))
+                            val gramAltinChange = onsFactor.multiply(usdFactor).subtract(BigDecimal.ONE).multiply(BigDecimal("100")).setScale(2, RoundingMode.HALF_UP)
+
                             marketAssets.add(
                                     MarketAsset(
                                             "GRAM_ALTIN",
@@ -996,7 +1006,14 @@ constructor(
                             val sp = silverOns.currentPrice
                                     .divide(BigDecimal("31.1035"), 8, RoundingMode.HALF_UP)
                                     .multiply(usdTryPrice)
-                            val gramGumusChange = silverOns.dailyChangePercentage
+                            
+                            val usdAsset = marketAssets.find { it.symbol == "USDTRY=X" } ?: marketAssetDao.getMarketAssetBySymbolAndTypeOnce("USDTRY=X", AssetType.DOVIZ)
+                            val usdChange = usdAsset?.dailyChangePercentage ?: BigDecimal.ZERO
+                            
+                            val silverFactor = BigDecimal.ONE.add(silverOns.dailyChangePercentage.divide(BigDecimal("100"), 8, RoundingMode.HALF_UP))
+                            val usdFactor = BigDecimal.ONE.add(usdChange.divide(BigDecimal("100"), 8, RoundingMode.HALF_UP))
+                            val gramGumusChange = silverFactor.multiply(usdFactor).subtract(BigDecimal.ONE).multiply(BigDecimal("100")).setScale(2, RoundingMode.HALF_UP)
+
                             marketAssets.add(
                                     MarketAsset(
                                             "GRAM_GUMUS",
@@ -1397,6 +1414,8 @@ constructor(
     suspend fun deleteAsset(a: Asset) = assetDao.deleteAsset(a)
     suspend fun toggleFavorite(s: String, t: AssetType, f: Boolean) =
             marketAssetDao.updateFavorite(s, t, f)
+
+    suspend fun getAssetsByPortfolioIdOnce(id: Long) = assetDao.getAssetsByPortfolioIdOnce(id)
 
     fun getAllPriceAlerts(): Flow<List<PriceAlert>> = priceAlertDao.getAllAlerts()
     fun getAlertsForAsset(s: String, t: AssetType): Flow<List<PriceAlert>> =

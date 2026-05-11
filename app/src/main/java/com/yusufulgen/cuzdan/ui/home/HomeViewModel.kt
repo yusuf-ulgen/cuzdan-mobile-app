@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.yusufulgen.cuzdan.R
 import com.yusufulgen.cuzdan.data.local.entity.Asset
 import com.yusufulgen.cuzdan.data.local.entity.AssetType
+import com.yusufulgen.cuzdan.data.local.entity.MarketAsset
 import com.yusufulgen.cuzdan.data.local.entity.Portfolio
 import com.yusufulgen.cuzdan.data.repository.AssetRepository
 import com.yusufulgen.cuzdan.data.repository.PortfolioRepository
@@ -102,61 +103,50 @@ class HomeViewModel @Inject constructor(
             assetRepository.refreshOwnedFundPrices().collect { }
         }
     }
-
     private fun observePortfolios() {
         viewModelScope.launch {
             combine(
                 portfolioRepository.getAllPortfolios(),
-                assetRepository.getAllAssets(),
-                _homeCurrency,
                 _usdRate,
-                _eurRate
-            ) { portfolios, allAssets, currency, usdRate, eurRate ->
-                val exchangeRate = when (currency) {
-                    "USD" -> usdRate ?: BigDecimal("32.5")
-                    "EUR" -> eurRate ?: BigDecimal("35.2")
-                    else -> BigDecimal.ONE
-                }
+                _eurRate,
+                _homeCurrency,
+                assetRepository.getMarketAssetsFlow(null)
+            ) { array ->
+                val portfolios = array[0] as List<Portfolio>
+                val usdRate = array[1] as BigDecimal?
+                val eurRate = array[2] as BigDecimal?
+                val currency = array[3] as String
+                val marketAssets = (array[4] as List<MarketAsset>).associateBy { it.symbol to it.assetType }
+
+                var exchangeRate = BigDecimal.ONE
+                if (currency == "USD") exchangeRate = usdRate ?: BigDecimal("32.5")
+                else if (currency == "EUR") exchangeRate = eurRate ?: BigDecimal("35.2")
 
                 val portfolioList = portfolios.map { p ->
-                    val assets = allAssets.filter { it.portfolioId == p.id }
-                    var balanceBase = BigDecimal.ZERO
-                    var costBase = BigDecimal.ZERO
-                    assets.forEach { asset ->
-                        val assetRate = when (asset.currency) {
-                            "USD" -> usdRate ?: BigDecimal("32.5")
-                            "EUR" -> eurRate ?: BigDecimal("35.2")
-                            else -> BigDecimal.ONE
-                        }
-                        balanceBase = balanceBase.add(asset.amount.multiply(asset.currentPrice).multiply(assetRate))
-                        costBase = costBase.add(asset.amount.multiply(asset.averageBuyPrice).multiply(assetRate))
+                    val assets = assetRepository.getAssetsByPortfolioIdOnce(p.id).map { asset ->
+                        val market = marketAssets[asset.symbol to asset.assetType]
+                        if (market != null) {
+                            asset.copy(currentPrice = market.currentPrice, dailyChangePercentage = market.dailyChangePercentage)
+                        } else asset
                     }
-                    val convCost = costBase.divide(exchangeRate, 2, RoundingMode.HALF_UP)
                     
-                    // Boştaki nakit (TRY): Yatırılan para - Varlıkların alış maliyeti
-                    val idleCashInTry = if (p.depositedAmount > BigDecimal.ZERO) {
-                        (p.depositedAmount - costBase).coerceAtLeast(BigDecimal.ZERO)
+                    val balanceBase = assets.sumOf { it.amount.multiply(it.currentPrice).multiply(when(it.currency){"USD"->usdRate?:"32.5".toBigDecimal(); "EUR"->eurRate?:"35.2".toBigDecimal(); else->BigDecimal.ONE}) }
+                    val convCost = assets.sumOf { it.amount.multiply(it.averageBuyPrice).multiply(when(it.buyCurrency){"USD"->usdRate?:"32.5".toBigDecimal(); "EUR"->eurRate?:"35.2".toBigDecimal(); else->BigDecimal.ONE}) }.divide(exchangeRate, 2, RoundingMode.HALF_UP)
+                    
+                    val idleCashInTry = if (p.isIncludedInTotal) {
+                        (p.depositedAmount - assets.sumOf { it.amount.multiply(it.averageBuyPrice).multiply(when(it.buyCurrency){"USD"->usdRate?:"32.5".toBigDecimal(); "EUR"->eurRate?:"35.2".toBigDecimal(); else->BigDecimal.ONE}) }).coerceAtLeast(BigDecimal.ZERO)
                     } else {
                         BigDecimal.ZERO
                     }
                     
-                    // Toplam bakiye (Seçili para biriminde): (Varlıkların değeri + Boştaki nakit) / Kur
                     val totalValueBase = balanceBase.add(idleCashInTry)
                     val convBalance = totalValueBase.divide(exchangeRate, 2, RoundingMode.HALF_UP)
 
-                    // DAILY CHANGE Calculation for the portfolio
                     var portfolioDailyProfitBase = BigDecimal.ZERO
                     var portfolioPrevValueBase = idleCashInTry
 
-                    val cal = java.util.Calendar.getInstance()
-                    val dayOfWeek = cal.get(java.util.Calendar.DAY_OF_WEEK)
-                    val isWeekend = dayOfWeek == java.util.Calendar.SATURDAY || dayOfWeek == java.util.Calendar.SUNDAY
-                    val hr = cal.get(java.util.Calendar.HOUR_OF_DAY)
-                    val min = cal.get(java.util.Calendar.MINUTE)
-                    val isBistClosed = isWeekend || (hr < 9) || (hr == 9 && min < 55)
-
                     assets.forEach { asset ->
-                        val values = calculateAssetDailyValues(asset, usdRate, eurRate, isBistClosed)
+                        val values = calculateAssetDailyValues(asset, usdRate, eurRate)
                         portfolioDailyProfitBase = portfolioDailyProfitBase.add(values.dailyProfitBase)
                         portfolioPrevValueBase = portfolioPrevValueBase.add(values.prevValueBase)
                     }
@@ -168,18 +158,19 @@ class HomeViewModel @Inject constructor(
 
                     PortfolioWithBalance(p, convBalance, dailyChangeAbs, dailyChangePerc, convCost, p.depositedAmount)
                 }
-
-
+                
+                // Return everything needed for the collect block
+                Triple(portfolioList, currency, Triple(usdRate, eurRate, portfolios))
+            }
+            .collect { (portfolioList, currency, ratesAndP) ->
+                val (usdRate, eurRate, rawPortfolios) = ratesAndP
                 val currentId = _selectedPortfolioId.value
-                // IMPORTANT: Do not auto-select a portfolio.
-                // If the user is in "total / none selected" (-1), keep it that way. This prevents
-                // silently attaching new assets to the first portfolio on fresh installs.
                 val newId = when {
                     currentId == -1L -> -1L
-                    portfolios.any { it.id == currentId } -> currentId
+                    rawPortfolios.any { it.id == currentId } -> currentId
                     else -> -1L
                 }
-                val selectedPortfolio = portfolios.find { it.id == newId }
+                val selectedPortfolio = rawPortfolios.find { it.id == newId }
                 val localizedName =
                     if (newId == -1L) context.getString(R.string.total_portfolios)
                     else selectedPortfolio?.name.orEmpty()
@@ -195,10 +186,6 @@ class HomeViewModel @Inject constructor(
                 )}
                 calculateStats(_currentAssets.value, _expandedCategory.value, currency, usdRate, eurRate)
             }
-            .conflate()
-            .flowOn(Dispatchers.Default)
-            .collect()
-
         }
     }
 
@@ -223,10 +210,28 @@ class HomeViewModel @Inject constructor(
                 _expandedCategory,
                 _homeCurrency,
                 _usdRate,
-                _eurRate
-            ) { assets, expanded, currency, usdRate, eurRate ->
-                _currentAssets.value = assets
-                calculateStats(assets, expanded, currency, usdRate, eurRate)
+                _eurRate,
+                assetRepository.getMarketAssetsFlow(null)
+            ) { array ->
+                val assets = array[0] as List<Asset>
+                val expanded = array[1] as AssetType?
+                val currency = array[2] as String
+                val usdRate = array[3] as BigDecimal?
+                val eurRate = array[4] as BigDecimal?
+                val marketAssets = array[5] as List<MarketAsset>
+
+                val marketMap = marketAssets.associateBy { it.symbol to it.assetType }
+                val syncedAssets = assets.map { asset ->
+                    val market = marketMap[asset.symbol to asset.assetType]
+                    if (market != null) {
+                        asset.copy(
+                            currentPrice = market.currentPrice,
+                            dailyChangePercentage = market.dailyChangePercentage
+                        )
+                    } else asset
+                }
+                _currentAssets.value = syncedAssets
+                calculateStats(syncedAssets, expanded, currency, usdRate, eurRate)
             }
             .conflate()
             .flowOn(Dispatchers.Default)
@@ -323,7 +328,7 @@ class HomeViewModel @Inject constructor(
             totalBalanceBase = totalBalanceBase.add(asset.amount.multiply(asset.currentPrice).multiply(assetRate))
             totalCostBase = totalCostBase.add(asset.amount.multiply(asset.averageBuyPrice).multiply(costRate))
             
-            val values = calculateAssetDailyValues(asset, usdRate, eurRate, isBistClosed)
+            val values = calculateAssetDailyValues(asset, usdRate, eurRate)
             totalDailyProfitBase = totalDailyProfitBase.add(values.dailyProfitBase)
             totalPrevDayValueBase = totalPrevDayValueBase.add(values.prevValueBase)
         }
@@ -415,12 +420,7 @@ class HomeViewModel @Inject constructor(
                 
                 // Daily P/L: prevPrice = currentPrice / (1 + dailyChangePercentage/100)
                 if (asset.amount > BigDecimal.ZERO) {
-                    var pct = asset.dailyChangePercentage
-                    if (asset.assetType == AssetType.BIST && isBistClosedForToday) {
-                        pct = BigDecimal.ZERO
-                    }
-
-
+                    val pct = asset.dailyChangePercentage
                     val denom = BigDecimal.ONE.add(pct.divide(BigDecimal("100"), 8, RoundingMode.HALF_UP))
                     if (denom.compareTo(BigDecimal.ZERO) != 0) {
                         val prevPrice = asset.currentPrice.divide(denom, 12, RoundingMode.HALF_UP)
@@ -683,7 +683,7 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun calculateAssetDailyValues(asset: Asset, usdRate: BigDecimal?, eurRate: BigDecimal?, isBistClosed: Boolean): AssetDailyValues {
+    private fun calculateAssetDailyValues(asset: Asset, usdRate: BigDecimal?, eurRate: BigDecimal?): AssetDailyValues {
         val assetRate = when (asset.currency) {
             "USD" -> usdRate ?: BigDecimal("32.5")
             "EUR" -> eurRate ?: BigDecimal("35.2")
@@ -692,11 +692,7 @@ class HomeViewModel @Inject constructor(
         
         if (asset.amount <= BigDecimal.ZERO) return AssetDailyValues(BigDecimal.ZERO, BigDecimal.ZERO)
         
-        var pct = asset.dailyChangePercentage
-        if (asset.assetType == AssetType.BIST && isBistClosed) {
-            pct = BigDecimal.ZERO
-        }
-        
+        val pct = asset.dailyChangePercentage
         val denom = BigDecimal.ONE.add(pct.divide(BigDecimal("100"), 12, RoundingMode.HALF_UP))
         if (denom.compareTo(BigDecimal.ZERO) == 0) return AssetDailyValues(BigDecimal.ZERO, asset.amount.multiply(asset.currentPrice).multiply(assetRate))
         

@@ -1,229 +1,222 @@
-<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?android:attr/windowBackground"
+    android:background="?android:attr/windowBackground">
 
-    android:fillViewport="true">
-
-    <androidx.constraintlayout.widget.ConstraintLayout
-        android:layout_width="match_parent"
+    <!-- Fixed Header Section -->
+    <TextView
+        android:id="@+id/text_wallet_header"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:paddingBottom="80dp"
-        tools:context=".ui.home.HomeFragment">
+        android:layout_marginStart="24dp"
+        android:layout_marginTop="32dp"
+        android:fontFamily="sans-serif-black"
+        android:text="@string/title_home"
+        android:textColor="?attr/colorOnSurface"
+        android:textSize="24sp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
-        <!-- Header Section -->
-        <TextView
-            android:id="@+id/text_wallet_header"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="24dp"
-            android:layout_marginTop="32dp"
-            android:fontFamily="sans-serif-black"
-            android:text="@string/title_home"
-            android:textColor="?attr/colorOnSurface"
-            android:textSize="24sp"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
+    <LinearLayout
+        android:id="@+id/layout_top_actions"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="16dp"
+        android:layout_marginTop="24dp"
+        android:orientation="horizontal"
+        android:gravity="end"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
 
-        <!-- Top-right icon row: Add Portfolio | Currency Swticher | Privacy Toggle -->
-        <LinearLayout
-            android:id="@+id/layout_top_actions"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="16dp"
-            android:layout_marginTop="24dp"
-            android:orientation="horizontal"
-            android:gravity="end"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="parent">
-
-            <ImageButton
-                android:id="@+id/btn_add_portfolio"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:background="@drawable/bg_icon"
-                android:padding="12dp"
-                android:scaleType="centerInside"
-                android:src="@drawable/ic_add"
-                android:contentDescription="@string/nav_add_asset"
-                app:tint="?attr/colorOnSurface" />
-
-            <ImageButton
-                android:id="@+id/btn_currency_switcher"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:layout_marginStart="6dp"
-                android:background="@drawable/bg_icon"
-                android:padding="9dp"
-                android:scaleType="centerInside"
-                android:src="@drawable/ic_tl"
-                app:tint="?attr/colorOnSurface" />
-
-            <ImageButton
-                android:id="@+id/btn_privacy_toggle"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:layout_marginStart="6dp"
-                android:background="@drawable/bg_icon"
-                android:padding="9dp"
-                android:scaleType="centerInside"
-                android:src="@drawable/ic_eye_on"
-                app:tint="?attr/colorOnSurface" />
-
-        </LinearLayout>
-
-
-
-        <!-- Donut Chart Centered Top -->
-        <com.yusufulgen.cuzdan.ui.home.DonutChartView
-            android:id="@+id/donut_chart"
-            android:layout_width="0dp"
-            android:layout_height="200dp"
-            android:layout_marginTop="16dp"
-            android:layout_marginStart="32dp"
-            android:layout_marginEnd="32dp"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/layout_top_actions" />
-
-
-
-        <!-- Portfolio Switcher Pill (Restored position) -->
-        <LinearLayout
-            android:id="@+id/layout_portfolio_selector"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+        <ImageButton
+            android:id="@+id/btn_add_portfolio"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:background="@drawable/bg_icon"
-            android:gravity="center"
-            android:orientation="horizontal"
-            android:paddingHorizontal="4dp"
-            android:paddingVertical="4dp"
-            android:clickable="true"
-            android:focusable="true"
-            android:stateListAnimator="@animator/scale_on_press"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/donut_chart">
+            android:padding="12dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_add"
+            android:contentDescription="@string/nav_add_asset"
+            app:tint="?attr/colorOnSurface" />
 
-            <ImageView
-                android:id="@+id/btn_prev_portfolio"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:padding="8dp"
-                android:src="@drawable/ic_chevron_left"
-                app:tint="?attr/colorOnSurface" />
+        <ImageButton
+            android:id="@+id/btn_currency_switcher"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="6dp"
+            android:background="@drawable/bg_icon"
+            android:padding="9dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_tl"
+            app:tint="?attr/colorOnSurface" />
 
-            <TextView
-                android:id="@+id/text_portfolio_name"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginHorizontal="12dp"
-                android:fontFamily="sans-serif-black"
-                android:text="@string/total_portfolios"
-                android:visibility="visible"
-                android:textColor="?attr/colorOnSurface"
-                android:textSize="15sp" />
+        <ImageButton
+            android:id="@+id/btn_privacy_toggle"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="6dp"
+            android:background="@drawable/bg_icon"
+            android:padding="9dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_eye_on"
+            app:tint="?attr/colorOnSurface" />
 
-            <ImageView
-                android:id="@+id/btn_next_portfolio"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:padding="8dp"
-                android:src="@drawable/ic_chevron_right"
-                app:tint="?attr/colorOnSurface" />
-        </LinearLayout>
+    </LinearLayout>
 
+    <!-- Scrollable Content -->
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:fillViewport="true"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/layout_top_actions">
 
-        <!-- Total Balance Section -->
-        <LinearLayout
-            android:id="@+id/layout_balance_container"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:gravity="center"
-            android:orientation="vertical"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/layout_portfolio_selector">
-
-            <TextView
-                android:id="@+id/text_total_balance"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:fontFamily="sans-serif-black"
-                android:letterSpacing="-0.03"
-                android:text="₺0,00"
-                android:textColor="?attr/colorOnSurface"
-                android:textSize="44sp" />
-
-            <!-- Daily Change Section (Pill) -->
-            <LinearLayout
-                android:id="@+id/layout_daily_change_pill"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:background="@drawable/bg_pill"
-                android:gravity="center"
-                android:orientation="horizontal"
-                android:paddingHorizontal="12dp"
-                android:paddingVertical="6dp"
-                android:clickable="true"
-                android:focusable="true"
-                android:stateListAnimator="@animator/scale_on_press">
-
-                <TextView
-                    android:id="@+id/text_daily_change_perc"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="+₺0,00 (%0,00)"
-                    android:textColor="@color/accent_green"
-                    android:fontFamily="sans-serif-bold"
-                    android:textSize="14sp" />
-                
-                <ImageView
-                    android:layout_width="12dp"
-                    android:layout_height="12dp"
-                    android:layout_marginStart="4dp"
-                    android:src="@drawable/ic_arrow_drop_down"
-                    android:alpha="0.5"
-                    app:tint="?android:attr/textColorSecondary" />
-            </LinearLayout>
-
-            <TextView
-                android:id="@+id/label_daily_change"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:alpha="0.4"
-                android:fontFamily="sans-serif-black"
-                android:text="@string/label_daily_change_header"
-                android:textColor="?attr/colorOnSurface"
-                android:textSize="11sp" />
-
-        </LinearLayout>
-
-
-
-
-
-
-
-
-        <!-- Expandable Asset List -->
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/recycler_wallet_categories"
+        <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:layout_marginHorizontal="16dp"
-            android:nestedScrollingEnabled="false"
-            app:layout_constraintTop_toBottomOf="@id/layout_balance_container" />
+            android:paddingBottom="80dp"
+            tools:context=".ui.home.HomeFragment">
 
+            <!-- Donut Chart Centered Top -->
+            <com.yusufulgen.cuzdan.ui.home.DonutChartView
+                android:id="@+id/donut_chart"
+                android:layout_width="0dp"
+                android:layout_height="200dp"
+                android:layout_marginTop="16dp"
+                android:layout_marginStart="32dp"
+                android:layout_marginEnd="32dp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
 
+            <!-- Portfolio Switcher Pill -->
+            <LinearLayout
+                android:id="@+id/layout_portfolio_selector"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:background="@drawable/bg_icon"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:paddingHorizontal="4dp"
+                android:paddingVertical="4dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:stateListAnimator="@animator/scale_on_press"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/donut_chart">
 
-    </androidx.constraintlayout.widget.ConstraintLayout>
+                <ImageView
+                    android:id="@+id/btn_prev_portfolio"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:padding="8dp"
+                    android:src="@drawable/ic_chevron_left"
+                    app:tint="?attr/colorOnSurface" />
 
-</androidx.core.widget.NestedScrollView>
+                <TextView
+                    android:id="@+id/text_portfolio_name"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="12dp"
+                    android:fontFamily="sans-serif-black"
+                    android:text="@string/total_portfolios"
+                    android:visibility="visible"
+                    android:textColor="?attr/colorOnSurface"
+                    android:textSize="15sp" />
+
+                <ImageView
+                    android:id="@+id/btn_next_portfolio"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:padding="8dp"
+                    android:src="@drawable/ic_chevron_right"
+                    app:tint="?attr/colorOnSurface" />
+            </LinearLayout>
+
+            <!-- Total Balance Section -->
+            <LinearLayout
+                android:id="@+id/layout_balance_container"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:gravity="center"
+                android:orientation="vertical"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/layout_portfolio_selector">
+
+                <TextView
+                    android:id="@+id/text_total_balance"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif-black"
+                    android:letterSpacing="-0.03"
+                    android:text="₺0,00"
+                    android:textColor="?attr/colorOnSurface"
+                    android:textSize="44sp" />
+
+                <!-- Daily Change Section (Pill) -->
+                <LinearLayout
+                    android:id="@+id/layout_daily_change_pill"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/bg_pill"
+                    android:gravity="center"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="12dp"
+                    android:paddingVertical="6dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:stateListAnimator="@animator/scale_on_press">
+
+                    <TextView
+                        android:id="@+id/text_daily_change_perc"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="+₺0,00 (%0,00)"
+                        android:textColor="@color/accent_green"
+                        android:fontFamily="sans-serif-bold"
+                        android:textSize="14sp" />
+
+                    <ImageView
+                        android:layout_width="12dp"
+                        android:layout_height="12dp"
+                        android:layout_marginStart="4dp"
+                        android:src="@drawable/ic_arrow_drop_down"
+                        android:alpha="0.5"
+                        app:tint="?android:attr/textColorSecondary" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/label_daily_change"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:alpha="0.4"
+                    android:fontFamily="sans-serif-black"
+                    android:text="@string/label_daily_change_header"
+                    android:textColor="?attr/colorOnSurface"
+                    android:textSize="11sp" />
+
+            </LinearLayout>
+
+            <!-- Expandable Asset List -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recycler_wallet_categories"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:layout_marginHorizontal="16dp"
+                android:nestedScrollingEnabled="false"
+                app:layout_constraintTop_toBottomOf="@id/layout_balance_container" />
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+    </androidx.core.widget.NestedScrollView>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
