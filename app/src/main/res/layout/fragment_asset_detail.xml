@@ -148,49 +148,69 @@
                         app:layout_constraintBottom_toBottomOf="parent"
                         app:layout_constraintTop_toBottomOf="@id/text_current_price" />
 
-                    <com.google.android.material.button.MaterialButtonToggleGroup
+                    <ProgressBar
+                        android:id="@+id/progressBarChart"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:visibility="gone"
+                        app:layout_constraintBottom_toBottomOf="@id/priceChart"
+                        app:layout_constraintEnd_toEndOf="@id/priceChart"
+                        app:layout_constraintStart_toStartOf="@id/priceChart"
+                        app:layout_constraintTop_toTopOf="@id/priceChart" />                    <com.google.android.material.button.MaterialButtonToggleGroup
                         android:id="@+id/chartRangeToggle"
-                        android:layout_width="wrap_content"
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
                         app:singleSelection="true"
                         app:selectionRequired="true"
-                        app:checkedButton="@+id/btnRange1W"
+                        app:checkedButton="@+id/btnRange1D"
                         app:layout_constraintBottom_toBottomOf="parent"
                         app:layout_constraintEnd_toEndOf="parent"
                         app:layout_constraintStart_toStartOf="parent">
 
-                        <Button
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnRange1D"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_height="36dp"
+                            android:layout_weight="1"
+                            android:text="@string/chart_range_1d"
+                            android:textSize="10sp"
+                            android:textColor="?attr/colorOnSurface"
+                            app:strokeColor="?attr/colorOutline" />
+
+                        <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnRange1W"
                             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                            android:layout_width="wrap_content"
+                            android:layout_width="0dp"
                             android:layout_height="36dp"
-                            android:text="7G"
+                            android:layout_weight="1"
+                            android:text="@string/chart_range_1w"
                             android:textSize="10sp"
                             android:textColor="?attr/colorOnSurface"
                             app:strokeColor="?attr/colorOutline" />
 
-
-                        <Button
+                        <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnRange1M"
                             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                            android:layout_width="wrap_content"
+                            android:layout_width="0dp"
                             android:layout_height="36dp"
-                            android:text="1A"
+                            android:layout_weight="1"
+                            android:text="@string/chart_range_1m"
                             android:textSize="10sp"
                             android:textColor="?attr/colorOnSurface"
                             app:strokeColor="?attr/colorOutline" />
 
-
-                        <Button
+                        <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnRange1Y"
                             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                            android:layout_width="wrap_content"
+                            android:layout_width="0dp"
                             android:layout_height="36dp"
-                            android:text="1Y"
+                            android:layout_weight="1"
+                            android:text="@string/chart_range_1y"
                             android:textSize="10sp"
                             android:textColor="?attr/colorOnSurface"
                             app:strokeColor="?attr/colorOutline" />
-
 
                     </com.google.android.material.button.MaterialButtonToggleGroup>
 

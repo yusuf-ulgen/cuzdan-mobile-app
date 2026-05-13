@@ -153,6 +153,7 @@ class AssetDetailFragment : Fragment() {
         binding.chartRangeToggle.addOnButtonCheckedListener { _, checkedId, isChecked ->
             if (isChecked) {
                 when (checkedId) {
+                    R.id.btnRange1D -> viewModel.updateRange("1d")
                     R.id.btnRange1W -> viewModel.updateRange("1w")
                     R.id.btnRange1M -> viewModel.updateRange("1mo")
                     R.id.btnRange1Y -> viewModel.updateRange("1y")
@@ -186,6 +187,13 @@ class AssetDetailFragment : Fragment() {
     }
 
     private fun updateUI(state: AssetDetailUiState) {
+        binding.progressBarChart.visibility = if (state.isLoading) View.VISIBLE else View.GONE
+        if (state.isLoading) {
+            binding.priceChart.alpha = 0.5f
+        } else {
+            binding.priceChart.alpha = 1.0f
+        }
+        
         binding.textCurrentPrice.text = state.currentPrice.formatCurrency(state.displayCurrency)
         binding.textPortfolioName.text = getString(R.string.detail_portfolio_prefix, state.portfolioName)
         
@@ -250,8 +258,13 @@ class AssetDetailFragment : Fragment() {
 
     private fun setupChart(history: List<Pair<Long, Double>>) {
         if (history.isEmpty()) {
-            binding.priceChart.setNoDataText(getString(R.string.error_loading))
-            binding.priceChart.invalidate()
+            if (!viewModel.uiState.value.isLoading) {
+                binding.priceChart.setNoDataText(getString(R.string.error_loading))
+                binding.priceChart.invalidate()
+            } else {
+                binding.priceChart.setNoDataText("")
+                binding.priceChart.invalidate()
+            }
             return
         }
 

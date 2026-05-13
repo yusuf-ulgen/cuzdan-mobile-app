@@ -91,6 +91,10 @@
     <string name="total_portfolios_warning_title">Create a New Portfolio</string>
     <string name="total_portfolios_warning_message">You need to create a portfolio before adding assets. You can create one from the Settings tab.</string>
     <string name="error_loading">Loading error</string>
+    <string name="chart_range_1d">1D</string>
+    <string name="chart_range_1w">1W</string>
+    <string name="chart_range_1m">1M</string>
+    <string name="chart_range_1y">1Y</string>
 
     <!-- Markets & Currency -->
     <string name="filter_all">All</string>

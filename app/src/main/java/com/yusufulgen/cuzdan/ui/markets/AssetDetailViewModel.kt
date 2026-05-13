@@ -37,7 +37,9 @@ data class AssetDetailUiState(
     val averageBuyPrice: BigDecimal = BigDecimal.ZERO,
     val buyCurrency: String = "TRY",
     val portfolioName: String = "Ana Portföy",
-    val transactionType: TransactionType = TransactionType.BUY
+    val transactionType: TransactionType = TransactionType.BUY,
+    val selectedRange: String = "1d",
+    val selectedInterval: String = "1m"
 )
 
 
@@ -61,8 +63,16 @@ class AssetDetailViewModel @Inject constructor(
             else -> currency
         }
 
-        _uiState.update { it.copy(symbol = symbol, name = name, assetType = type, currency = currency, displayCurrency = displayCurrency) }
-        loadHistory(symbol)
+        _uiState.update { it.copy(
+            symbol = symbol, 
+            name = name, 
+            assetType = type, 
+            currency = currency, 
+            displayCurrency = displayCurrency,
+            selectedRange = "1d",
+            selectedInterval = "1m"
+        ) }
+        loadHistory(symbol, "1d", "1m")
         observeCurrentPrice(symbol)
         loadExistingAsset(symbol)
         observeUsdRate()
@@ -86,7 +96,8 @@ class AssetDetailViewModel @Inject constructor(
 
     private fun refreshDisplayPrices() {
         // Trigger a refresh of history and current price based on new rate
-        loadHistory(_uiState.value.symbol)
+        val state = _uiState.value
+        loadHistory(state.symbol, state.selectedRange, state.selectedInterval)
     }
 
     private fun loadExistingAsset(symbol: String) {
@@ -113,6 +124,7 @@ class AssetDetailViewModel @Inject constructor(
             "1y" -> "1d"
             else -> "1d"
         }
+        _uiState.update { it.copy(selectedRange = range, selectedInterval = interval) }
         loadHistory(_uiState.value.symbol, range, interval)
     }
 

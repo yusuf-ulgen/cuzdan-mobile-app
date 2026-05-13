@@ -92,6 +92,10 @@
     <string name="total_portfolios_warning_title">Yeni Portföy Açmalısınız</string>
     <string name="total_portfolios_warning_message">Varlık ekleyebilmek için önce bir portföy oluşturmalısınız. Ana sayfada sağ üst köşede bulunan " + " simgesini kullanabilirsiniz.</string>
     <string name="error_loading">Yükleme hatası</string>
+    <string name="chart_range_1d">1G</string>
+    <string name="chart_range_1w">1H</string>
+    <string name="chart_range_1m">1A</string>
+    <string name="chart_range_1y">1Y</string>
  
     <!-- Markets & Currency -->
     <string name="filter_all">Hepsi</string>
