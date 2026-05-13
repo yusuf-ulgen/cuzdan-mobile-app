@@ -420,7 +420,10 @@ class HomeViewModel @Inject constructor(
                 
                 // Daily P/L: prevPrice = currentPrice / (1 + dailyChangePercentage/100)
                 if (asset.amount > BigDecimal.ZERO) {
-                    val pct = asset.dailyChangePercentage
+                    var pct = asset.dailyChangePercentage
+                    if (com.yusufulgen.cuzdan.util.MarketStatusUtils.isMarketClosedToday(asset.assetType)) {
+                        pct = BigDecimal.ZERO
+                    }
                     val denom = BigDecimal.ONE.add(pct.divide(BigDecimal("100"), 8, RoundingMode.HALF_UP))
                     if (denom.compareTo(BigDecimal.ZERO) != 0) {
                         val prevPrice = asset.currentPrice.divide(denom, 12, RoundingMode.HALF_UP)

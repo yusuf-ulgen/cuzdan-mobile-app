@@ -803,21 +803,7 @@ constructor(
                             chunk.map { sym ->
                                     async {
                                         try {
-                                            val fetchSymbol =
-                                                    if (type == AssetType.DOVIZ) {
-                                                        when (sym) {
-                                                            "USDTRY=X" -> "USDTRY=X"
-                                                            "EURTRY=X" -> "EURUSD=X"
-                                                            "GBPTRY=X" -> "GBPUSD=X"
-                                                            "AUDTRY=X" -> "AUDUSD=X"
-                                                            "NZDTRY=X" -> "NZDUSD=X"
-                                                            "VNDDTRY=X" -> "VND=X"
-                                                            else -> {
-                                                                val base = sym.replace("TRY=X", "")
-                                                                "$base=X"
-                                                            }
-                                                        }
-                                                    } else sym
+                                            val fetchSymbol = sym
 
                                             val response =
                                                     yahooFinanceApi.getChartData(
@@ -870,21 +856,7 @@ constructor(
                                                         change?.setScale(2, RoundingMode.HALF_UP)
                                                                 ?: BigDecimal.ZERO
 
-                                                if (type == AssetType.DOVIZ &&
-                                                                sym != "USDTRY=X" &&
-                                                                usdTryPrice > BigDecimal.ZERO
-                                                ) {
-                                                    current =
-                                                            if (fetchSymbol.endsWith("USD=X")) {
-                                                                current.multiply(usdTryPrice)
-                                                            } else {
-                                                                usdTryPrice.divide(
-                                                                        current,
-                                                                        8,
-                                                                        RoundingMode.HALF_UP
-                                                                )
-                                                            }
-                                                }
+                                                // Removed manual cross-rate calculation for DOVIZ
 
                                                 android.util.Log.d(
                                                         "CUZDAN_LOG",
@@ -1416,7 +1388,11 @@ constructor(
                 com.yusufulgen.cuzdan.data.local.entity.AssetType.BIST -> {
                     if (clean.endsWith(".IS")) clean else "$clean.IS"
                 }
-                // DOVIZ, EMTIA, NAKIT, FON, null → use symbol as-is (already correct format)
+                com.yusufulgen.cuzdan.data.local.entity.AssetType.DOVIZ,
+                com.yusufulgen.cuzdan.data.local.entity.AssetType.EMTIA -> {
+                    toYahooSymbol(symbol, assetType)
+                }
+                // NAKIT, FON, null → use symbol as-is (already correct format)
                 else -> symbol
             }
 
