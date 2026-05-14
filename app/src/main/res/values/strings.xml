@@ -146,6 +146,7 @@
     <string name="detail_quantity_cost">Miktar ve Maliyet</string>
     <string name="detail_transaction_amount">İşlem Miktarı</string>
     <string name="detail_held_amount">Eldeki: %1$s</string>
+    <string name="detail_held_cost">Eldeki: %1$s</string>
     <string name="detail_unit_cost_optional">Birim Maliyet (Opsiyonel)</string>
     <string name="detail_buy">ALIŞ (EKLE)</string>
     <string name="detail_sell">SATIŞ (AZALT)</string>
@@ -248,4 +249,16 @@
     <string name="error_invalid_date">Geçersiz tarih</string>
     <string name="error_invalid_years">Geçersiz süre</string>
 
+    <!-- Updates & Release Notes -->
+    <string name="release_notes_title">Güncelleme Detayları</string>
+    <string name="release_notes_version">Sürüm %1$s</string>
+    <string name="update_available_title">Yeni Güncelleme Mevcut!</string>
+    <string name="update_available_message">Uygulamamızın yeni bir sürümü yayınlandı. Daha iyi bir deneyim için lütfen güncelleyin.</string>
+    <string name="update_button">Güncelle</string>
+    <string name="settings_developer_apps">Yapımcının Diğer İçerikleri</string>
+    <string name="play_store_developer_link">https://play.google.com/store/apps/developer?id=Yusuf+Ulgen</string>
+    <!-- Delay Warnings -->
+    <string name="delay_warning_bist">*15dk gecikmeli</string>
+    <string name="delay_warning_general">*Gecikmeli veri</string>
+    <string name="delay_warning_fund">Veriler günde bir kez (21:00\'dan sonra) güncellenir.</string>
 </resources>

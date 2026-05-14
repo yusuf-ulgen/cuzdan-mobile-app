@@ -20,6 +20,20 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <TextView
+        android:id="@+id/text_delay_warning"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:fontFamily="sans-serif-medium"
+        android:textColor="@color/text_secondary"
+        android:textSize="12sp"
+        android:visibility="gone"
+        app:layout_constraintStart_toStartOf="@id/text_markets_header"
+        app:layout_constraintTop_toBottomOf="@id/text_markets_header"
+        tools:text="*15dk gecikmeli"
+        tools:visibility="visible" />
+
     <ImageButton
         android:id="@+id/btn_sort"
         android:layout_width="48dp"
@@ -60,7 +74,7 @@
         android:paddingHorizontal="16dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/text_markets_header">
+        app:layout_constraintTop_toBottomOf="@id/text_delay_warning">
 
         <ImageView
             android:layout_width="20dp"

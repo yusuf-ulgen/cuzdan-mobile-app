@@ -247,4 +247,14 @@
     <string name="error_invalid_rate">Invalid rate</string>
     <string name="error_invalid_date">Invalid date</string>
     <string name="error_invalid_years">Invalid duration</string>
+    <!-- Delay Warnings -->
+    <string name="delay_warning_bist">*15m delayed</string>
+    <string name="delay_warning_general">*Delayed data</string>
+    <string name="delay_warning_fund">Data is updated once per day (after 21:00).</string>
+    <!-- Updates & Release Notes -->
+    <string name="release_notes_title">Update Details</string>
+    <string name="release_notes_version">Version %1</string>
+    <string name="update_available_title">New Update Available!</string>
+    <string name="update_available_message">A new version of our app is available. Please update for a better experience.</string>
+    <string name="update_button">Update</string>
 </resources>

@@ -18,6 +18,7 @@ import com.yusufulgen.cuzdan.databinding.ActivityMainBinding
 import com.yusufulgen.cuzdan.ui.notifications.AgreementBottomSheet
 import com.yusufulgen.cuzdan.util.PreferenceManager
 import com.yusufulgen.cuzdan.util.PriceSyncManager
+import com.yusufulgen.cuzdan.util.UpdateManager
 import dagger.hilt.android.AndroidEntryPoint
 import java.util.concurrent.Executor
 import javax.inject.Inject
@@ -30,6 +31,9 @@ class MainActivity : AppCompatActivity() {
 
     @Inject
     lateinit var priceSyncManager: PriceSyncManager
+
+    @Inject
+    lateinit var updateManager: UpdateManager
 
     private lateinit var binding: ActivityMainBinding
 
@@ -124,6 +128,8 @@ class MainActivity : AppCompatActivity() {
         if (!prefManager.isAgreementAccepted()) {
             checkUserAgreement()
         }
+
+        updateManager.checkForUpdates(this)
     }
 
     private fun updateBottomNavIcons(navView: BottomNavigationView, selectedId: Int) {

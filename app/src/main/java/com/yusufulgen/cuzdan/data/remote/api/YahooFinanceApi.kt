@@ -41,6 +41,6 @@ interface YahooFinanceApi {
     @GET("v7/finance/quote")
     suspend fun getQuotes(
         @Query("symbols") symbols: String,
-        @Query("fields") fields: String = "regularMarketPrice,regularMarketChangePercent,shortName,longName,currency"
+        @Query("fields") fields: String = "regularMarketPrice,regularMarketChangePercent,regularMarketPreviousClose,regularMarketOpen,regularMarketTime,shortName,longName,currency"
     ): YahooQuoteResponse
 }

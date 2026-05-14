@@ -73,7 +73,8 @@ class NotificationsFragment : Fragment() {
             SettingItem(8, getString(R.string.settings_support), iconRes = R.drawable.ic_p_sup),
             SettingItem(9, getString(R.string.settings_recommend), iconRes = R.drawable.ic_p_sha),
             SettingItem(10, getString(R.string.settings_agreement), iconRes = R.drawable.ic_p_agr),
-            SettingItem(11, getString(R.string.settings_legal), iconRes = R.drawable.ic_p_agr)
+            SettingItem(11, getString(R.string.settings_legal), iconRes = R.drawable.ic_p_agr),
+            SettingItem(13, getString(R.string.settings_developer_apps), iconRes = R.drawable.ic_p_sha)
         )
 
         val adapter = SettingsAdapter(
@@ -119,6 +120,7 @@ class NotificationsFragment : Fragment() {
                 val navController = androidx.navigation.fragment.NavHostFragment.findNavController(this)
                 navController.navigate(R.id.navigation_alerts)
             }
+            13 -> openDeveloperApps()
         }
     }
 
@@ -207,6 +209,13 @@ class NotificationsFragment : Fragment() {
             type = "text/plain"
         }
         startActivity(Intent.createChooser(sendIntent, null))
+    }
+
+    private fun openDeveloperApps() {
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            data = Uri.parse(getString(R.string.play_store_developer_link))
+        }
+        startActivity(intent)
     }
 
     private fun showAgreementDialog() {

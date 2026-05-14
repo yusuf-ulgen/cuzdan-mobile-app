@@ -260,7 +260,27 @@ constructor(
 
                 if (q != null) {
                     val current = q.regularMarketPrice ?: BigDecimal.ZERO
-                    val change = q.regularMarketChangePercent ?: BigDecimal.ZERO
+                    // Use Open as baseline if it's the current day in local time to avoid "yesterday's move" lingering
+                    val localCalendar = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Europe/Istanbul"))
+                    val isEarlyMorning = localCalendar.get(java.util.Calendar.HOUR_OF_DAY) < 4
+                    
+                    val openPrice = q.regularMarketOpen
+                    val prevClose = q.regularMarketPreviousClose
+                    
+                    val baseline = if (isEarlyMorning && openPrice != null && openPrice > BigDecimal.ZERO && (asset.assetType == AssetType.DOVIZ || asset.assetType == AssetType.EMTIA)) {
+                        openPrice
+                    } else {
+                        prevClose
+                    }
+                    
+                    val change = if (baseline != null && baseline.compareTo(BigDecimal.ZERO) > 0) {
+                        current.subtract(baseline)
+                            .divide(baseline, 8, RoundingMode.HALF_UP)
+                            .multiply(BigDecimal("100"))
+                            .setScale(2, RoundingMode.HALF_UP)
+                    } else {
+                        q.regularMarketChangePercent ?: BigDecimal.ZERO
+                    }
 
                     if (yahooSymbol == "GC=F") {
                         onsPrice = current
@@ -300,70 +320,69 @@ constructor(
                 }
             }
 
-            
+            // 4. Calculate Gram Gold separately with accurate Change %
+            val gramMarketClosed = com.yusufulgen.cuzdan.util.MarketStatusUtils.isMarketClosedToday(AssetType.EMTIA)
+            if (onsPrice != null &&
+                            usdTryPrice != null &&
+                            onsPrice!! > BigDecimal.ZERO &&
+                            usdTryPrice!! > BigDecimal.ZERO
+            ) {
+                val gramGoldPrice =
+                        onsPrice!!
+                                .divide(BigDecimal("31.1035"), 8, RoundingMode.HALF_UP)
+                                .multiply(usdTryPrice!!)
 
-                // 4. Calculate Gram Gold separately with accurate Change %
-                // Force change to 0 on weekends/holidays - markets are closed
-                val gramMarketClosed = com.yusufulgen.cuzdan.util.MarketStatusUtils.isMarketClosedToday(AssetType.EMTIA)
-                if (onsPrice != null &&
-                                usdTryPrice != null &&
-                                onsPrice!! > BigDecimal.ZERO &&
-                                usdTryPrice!! > BigDecimal.ZERO
-                ) {
-                    val gramGoldPrice =
-                            onsPrice!!
-                                    .divide(BigDecimal("31.1035"), 8, RoundingMode.HALF_UP)
-                                    .multiply(usdTryPrice!!)
+                val qOns = results.find { it.symbol == "GC=F" }
+                val qUsd = results.find { it.symbol == "USDTRY=X" }
 
-                    // Gram Gold Change % = ((1 + OnsChange/100) * (1 + UsdTryChange/100) - 1) * 100
-                    val onsFactor =
-                            BigDecimal.ONE.add(
-                                    onsChange.divide(BigDecimal("100"), 8, RoundingMode.HALF_UP)
-                            )
-                    val usdFactor =
-                            BigDecimal.ONE.add(
-                                    usdTryChange.divide(BigDecimal("100"), 8, RoundingMode.HALF_UP)
-                            )
-                    val rawGramGoldChange =
-                            onsFactor
-                                    .multiply(usdFactor)
-                                    .subtract(BigDecimal.ONE)
-                                    .multiply(BigDecimal("100"))
-                                    .setScale(2, RoundingMode.HALF_UP)
-                    // Piyasa kapalıysa (hafta sonu / tatil) değişimi sıfırla
-                    val gramGoldChange = if (gramMarketClosed) BigDecimal.ZERO else rawGramGoldChange
+                val onsPrev = qOns?.regularMarketPreviousClose ?: onsPrice!!.divide(
+                    BigDecimal.ONE.add(onsChange.divide(BigDecimal("100"), 8, RoundingMode.HALF_UP)),
+                    8, RoundingMode.HALF_UP
+                )
+                val usdPrev = qUsd?.regularMarketPreviousClose ?: usdTryPrice!!.divide(
+                    BigDecimal.ONE.add(usdTryChange.divide(BigDecimal("100"), 8, RoundingMode.HALF_UP)),
+                    8, RoundingMode.HALF_UP
+                )
 
-                    Log.d(
-                            TAG,
-                            "Gram Gold Calc: Ons($onsPrice) / 31.1035 * USDTRY($usdTryPrice) = $gramGoldPrice | Change: $gramGoldChange% (marketClosed=$gramMarketClosed)"
-                    )
-
-                    assetDao.getAssetsBySymbolOnce("GRAM_ALTIN").forEach { asset ->
-                        updatedAssets.add(
-                                asset.copy(
-                                        currentPrice = gramGoldPrice,
-                                        dailyChangePercentage = gramGoldChange
-                                )
-                        )
-                    }
-
-                    // Also update MarketAsset table for Gram Gold consistency
-                    val gramMarket =
-                            marketAssetDao.getMarketAssetBySymbolAndTypeOnce(
-                                    "GRAM_ALTIN",
-                                    AssetType.EMTIA
-                            )
-                    if (gramMarket != null) {
-                        marketAssetDao.insertMarketAsset(
-                                gramMarket.copy(
-                                        currentPrice = gramGoldPrice,
-                                        dailyChangePercentage = gramGoldChange,
-                                        lastUpdated = System.currentTimeMillis()
-                                )
-                        )
-                    }
-                    Log.d(TAG, "Gram Gold updated in DB for all portfolios.")
+                val gramGoldPrev = onsPrev.divide(BigDecimal("31.1035"), 8, RoundingMode.HALF_UP).multiply(usdPrev)
+                val gramGoldChange = if (gramMarketClosed) BigDecimal.ZERO else {
+                    gramGoldPrice.subtract(gramGoldPrev)
+                        .divide(gramGoldPrev, 8, RoundingMode.HALF_UP)
+                        .multiply(BigDecimal("100"))
+                        .setScale(2, RoundingMode.HALF_UP)
                 }
+
+                Log.d(
+                        TAG,
+                        "Gram Gold Calc: Ons($onsPrice) / 31.1035 * USDTRY($usdTryPrice) = $gramGoldPrice | Prev: $gramGoldPrev | Change: $gramGoldChange% (marketClosed=$gramMarketClosed)"
+                )
+
+                assetDao.getAssetsBySymbolOnce("GRAM_ALTIN").forEach { asset ->
+                    updatedAssets.add(
+                            asset.copy(
+                                    currentPrice = gramGoldPrice,
+                                    dailyChangePercentage = gramGoldChange
+                            )
+                    )
+                }
+
+                // Also update MarketAsset table for Gram Gold consistency
+                val gramMarket =
+                        marketAssetDao.getMarketAssetBySymbolAndTypeOnce(
+                                "GRAM_ALTIN",
+                                AssetType.EMTIA
+                        )
+                if (gramMarket != null) {
+                    marketAssetDao.insertMarketAsset(
+                            gramMarket.copy(
+                                    currentPrice = gramGoldPrice,
+                                    dailyChangePercentage = gramGoldChange,
+                                    lastUpdated = System.currentTimeMillis()
+                            )
+                    )
+                }
+                Log.d(TAG, "Gram Gold updated in DB for all portfolios.")
+            }
 
                 if (updatedAssets.isNotEmpty()) {
                     assetDao.updateAssets(updatedAssets)
@@ -804,12 +823,12 @@ constructor(
                                     async {
                                         try {
                                             val fetchSymbol = sym
-
+                                            val isDovizEmtia = type == AssetType.DOVIZ || type == AssetType.EMTIA
                                             val response =
                                                     yahooFinanceApi.getChartData(
                                                             fetchSymbol,
-                                                            range = "5d",
-                                                            interval = "1d"
+                                                            range = if (isDovizEmtia) "2d" else "5d",
+                                                            interval = if (isDovizEmtia) "1h" else "1d"
                                                     )
                                             val result = response.chart.result?.firstOrNull()?.meta
 
@@ -837,6 +856,50 @@ constructor(
                                                 val prev =
                                                         result.previousClose
                                                                 ?: result.chartPreviousClose
+
+                                                // CUSTOM FIX: For Forex/Commodities, Yahoo's daily change resets at 00:00 GMT.
+                                                // Turkey (GMT+3) users expect reset at 00:00 Local Time.
+                                                // We calculate the change since 00:00 TRT (21:00 GMT) manually if it's early morning.
+                                                if (type == AssetType.DOVIZ || type == AssetType.EMTIA) {
+                                                    try {
+                                                        val localCalendar = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Europe/Istanbul"))
+                                                        
+                                                        // Always try to find midnight price if we have enough data (range=5d gives us history)
+                                                        val timestamps = response.chart.result?.firstOrNull()?.timestamp
+                                                        val prices = response.chart.result?.firstOrNull()?.indicators?.quote?.firstOrNull()?.close
+                                                        
+                                                        if (!timestamps.isNullOrEmpty() && !prices.isNullOrEmpty()) {
+                                                            localCalendar.set(java.util.Calendar.HOUR_OF_DAY, 0)
+                                                            localCalendar.set(java.util.Calendar.MINUTE, 0)
+                                                            localCalendar.set(java.util.Calendar.SECOND, 0)
+                                                            localCalendar.set(java.util.Calendar.MILLISECOND, 0)
+                                                            val localMidnightSec = localCalendar.timeInMillis / 1000
+                                                            
+                                                            var midnightPrice: BigDecimal? = null
+                                                            // Search for the price closest to local midnight (21:00 GMT previous day usually)
+                                                            for (i in timestamps.indices) {
+                                                                if (timestamps[i] <= localMidnightSec) {
+                                                                    val p = prices[i]
+                                                                    if (p != null && p > BigDecimal.ZERO) midnightPrice = p
+                                                                } else {
+                                                                    break
+                                                                }
+                                                            }
+                                                            
+                                                            if (midnightPrice != null) {
+                                                                val manualChange = current.subtract(midnightPrice)
+                                                                    .divide(midnightPrice, 8, RoundingMode.HALF_UP)
+                                                                    .multiply(BigDecimal("100"))
+                                                                    .setScale(2, RoundingMode.HALF_UP)
+                                                                
+                                                                android.util.Log.d("CUZDAN_LOG", "Manual Change for $sym: Current=$current, Midnight=$midnightPrice, Change=$manualChange% (Yahoo said: $change%)")
+                                                                change = manualChange
+                                                            }
+                                                        }
+                                                    } catch (e: Exception) {
+                                                        android.util.Log.e("CUZDAN_LOG", "Error calculating midnight change for $sym: ${e.message}")
+                                                    }
+                                                }
 
                                                 if (change == null &&
                                                                 prev != null &&
@@ -962,15 +1025,19 @@ constructor(
                                             .divide(BigDecimal("31.1035"), 8, RoundingMode.HALF_UP)
                                             .multiply(usdTryPrice)
                             
-                            // Gram Gold Change % = ((1 + OnsChange/100) * (1 + UsdTryChange/100) - 1) * 100
-                            // Note: We need the USDTRY change here. 'ons' has its change, but we need USDTRY change too.
-                            // Since we might not have a MarketAsset for USDTRY in the same list, we can look it up or use the one from DB.
                             val usdAsset = marketAssets.find { it.symbol == "USDTRY=X" } ?: marketAssetDao.getMarketAssetBySymbolAndTypeOnce("USDTRY=X", AssetType.DOVIZ)
                             val usdChange = usdAsset?.dailyChangePercentage ?: BigDecimal.ZERO
                             
-                            val onsFactor = BigDecimal.ONE.add(ons.dailyChangePercentage.divide(BigDecimal("100"), 8, RoundingMode.HALF_UP))
-                            val usdFactor = BigDecimal.ONE.add(usdChange.divide(BigDecimal("100"), 8, RoundingMode.HALF_UP))
-                            val gramAltinChange = onsFactor.multiply(usdFactor).subtract(BigDecimal.ONE).multiply(BigDecimal("100")).setScale(2, RoundingMode.HALF_UP)
+                            val onsPrev = ons.currentPrice.divide(BigDecimal.ONE.add(ons.dailyChangePercentage.divide(BigDecimal("100"), 8, RoundingMode.HALF_UP)), 8, RoundingMode.HALF_UP)
+                            val usdPrev = usdTryPrice.divide(BigDecimal.ONE.add(usdChange.divide(BigDecimal("100"), 8, RoundingMode.HALF_UP)), 8, RoundingMode.HALF_UP)
+                            val gramGoldPrev = onsPrev.divide(BigDecimal("31.1035"), 8, RoundingMode.HALF_UP).multiply(usdPrev)
+                            
+                            val gramAltinChange = if (gramGoldPrev > BigDecimal.ZERO) {
+                                gp.subtract(gramGoldPrev)
+                                    .divide(gramGoldPrev, 8, RoundingMode.HALF_UP)
+                                    .multiply(BigDecimal("100"))
+                                    .setScale(2, RoundingMode.HALF_UP)
+                            } else BigDecimal.ZERO
 
                             marketAssets.add(
                                     MarketAsset(
@@ -1007,9 +1074,16 @@ constructor(
                             val usdAsset = marketAssets.find { it.symbol == "USDTRY=X" } ?: marketAssetDao.getMarketAssetBySymbolAndTypeOnce("USDTRY=X", AssetType.DOVIZ)
                             val usdChange = usdAsset?.dailyChangePercentage ?: BigDecimal.ZERO
                             
-                            val silverFactor = BigDecimal.ONE.add(silverOns.dailyChangePercentage.divide(BigDecimal("100"), 8, RoundingMode.HALF_UP))
-                            val usdFactor = BigDecimal.ONE.add(usdChange.divide(BigDecimal("100"), 8, RoundingMode.HALF_UP))
-                            val gramGumusChange = silverFactor.multiply(usdFactor).subtract(BigDecimal.ONE).multiply(BigDecimal("100")).setScale(2, RoundingMode.HALF_UP)
+                            val silverPrev = silverOns.currentPrice.divide(BigDecimal.ONE.add(silverOns.dailyChangePercentage.divide(BigDecimal("100"), 8, RoundingMode.HALF_UP)), 8, RoundingMode.HALF_UP)
+                            val usdPrev = usdTryPrice.divide(BigDecimal.ONE.add(usdChange.divide(BigDecimal("100"), 8, RoundingMode.HALF_UP)), 8, RoundingMode.HALF_UP)
+                            val gramSilverPrev = silverPrev.divide(BigDecimal("31.1035"), 8, RoundingMode.HALF_UP).multiply(usdPrev)
+                            
+                            val gramGumusChange = if (gramSilverPrev > BigDecimal.ZERO) {
+                                sp.subtract(gramSilverPrev)
+                                    .divide(gramSilverPrev, 8, RoundingMode.HALF_UP)
+                                    .multiply(BigDecimal("100"))
+                                    .setScale(2, RoundingMode.HALF_UP)
+                            } else BigDecimal.ZERO
 
                             marketAssets.add(
                                     MarketAsset(
@@ -1353,7 +1427,7 @@ constructor(
         if (symbol.uppercase() == "GRAM_ALTIN") {
             return try {
                 val onsData = fetchYahooHistoryData("GC=F", null, range, interval)
-                val usdTryData = fetchYahooHistoryData("TRY=X", null, range, interval)
+                val usdTryData = fetchYahooHistoryData("USDTRY=X", null, range, interval)
 
                 if (onsData.isEmpty() || usdTryData.isEmpty()) return emptyList()
 
@@ -1498,7 +1572,7 @@ constructor(
                 assets.forEach { a ->
                     val rate =
                             when (a.currency) {
-                                "USD" -> usdHistory.lastOrNull()?.second ?: 44.52
+                                "USD" -> usdHistory.lastOrNull()?.second ?: 33.0
                                 "EUR" -> eurHistory.lastOrNull()?.second ?: 35.2
                                 else -> 1.0
                             }
@@ -1514,7 +1588,7 @@ constructor(
                         val rate =
                                 when (a.currency) {
                                     "USD" -> usdHistory.lastOrNull { it.first <= ts }?.second
-                                                    ?: 44.52
+                                                    ?: 33.0
                                     "EUR" -> eurHistory.lastOrNull { it.first <= ts }?.second
                                                     ?: 35.0
                                     else -> 1.0

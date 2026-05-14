@@ -132,7 +132,14 @@ class PreferenceManager @Inject constructor(
     }
 
     fun resetPreferences() {
-
         prefs.edit().clear().apply()
+    }
+
+    fun setLastShownReleaseVersion(version: String) {
+        prefs.edit().putString("last_shown_release_version", version).apply()
+    }
+
+    fun getLastShownReleaseVersion(): String {
+        return prefs.getString("last_shown_release_version", "") ?: ""
     }
 }

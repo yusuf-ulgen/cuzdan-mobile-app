@@ -241,8 +241,10 @@ class AssetDetailFragment : Fragment() {
             }
         }
         
-        // Show held amount
+        // Show held amount and cost
         binding.textCurrentAmountHeld.text = getString(R.string.detail_held_amount, state.currentAmount.toPlainString())
+        binding.textCurrentCostHeld.text = getString(R.string.detail_held_cost, state.averageBuyPrice.formatCurrency(state.buyCurrency))
+        binding.textCurrentCostHeld.visibility = if (state.averageBuyPrice > BigDecimal.ZERO) View.VISIBLE else View.GONE
         
         val isPositive = state.dailyChangePercentage >= BigDecimal.ZERO
         val colorAttr = if (isPositive) com.yusufulgen.cuzdan.R.attr.pill_green_text else com.yusufulgen.cuzdan.R.attr.pill_red_text

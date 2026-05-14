@@ -71,6 +71,25 @@ class SymbolSearchFragment : Fragment() {
         viewModel.loadInitialSymbols(type)
         val localizedTypeName = getLocalizedAssetTypeName(type)
         binding.textTitle.text = getString(R.string.asset_title_template, localizedTypeName)
+
+        // Set delay warning
+        when (type) {
+            AssetType.BIST -> {
+                binding.textDelayWarning.text = getString(R.string.delay_warning_bist)
+                binding.textDelayWarning.visibility = View.VISIBLE
+            }
+            AssetType.FON -> {
+                binding.textDelayWarning.text = getString(R.string.delay_warning_fund)
+                binding.textDelayWarning.visibility = View.VISIBLE
+            }
+            AssetType.DOVIZ, AssetType.EMTIA, AssetType.KRIPTO -> {
+                binding.textDelayWarning.text = getString(R.string.delay_warning_general)
+                binding.textDelayWarning.visibility = View.VISIBLE
+            }
+            else -> {
+                binding.textDelayWarning.visibility = View.GONE
+            }
+        }
     }
 
     private fun getLocalizedAssetTypeName(type: AssetType): String {

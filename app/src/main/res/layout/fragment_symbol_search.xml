@@ -33,10 +33,24 @@
         android:text="Varlık Seç"
         android:textColor="?attr/colorOnSurface"
         android:textSize="20sp"
-        app:layout_constraintBottom_toBottomOf="@id/btn_back"
         app:layout_constraintEnd_toStartOf="@id/btn_currency_switcher"
         app:layout_constraintStart_toEndOf="@id/btn_back"
         app:layout_constraintTop_toTopOf="@id/btn_back" />
+
+    <TextView
+        android:id="@+id/text_delay_warning"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:fontFamily="sans-serif-medium"
+        android:textColor="@color/text_secondary"
+        android:textSize="11sp"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="@id/text_title"
+        app:layout_constraintStart_toStartOf="@id/text_title"
+        app:layout_constraintTop_toBottomOf="@id/text_title"
+        tools:text="*15dk gecikmeli"
+        tools:visibility="visible" />
 
     <ImageButton
         android:id="@+id/btn_currency_switcher"

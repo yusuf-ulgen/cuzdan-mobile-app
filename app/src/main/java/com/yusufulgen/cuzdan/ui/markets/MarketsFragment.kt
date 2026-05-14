@@ -45,6 +45,7 @@ class MarketsFragment : Fragment() {
         
         // Markets sayfasını her açtığımızda varsayılan olarak "Borsa" seçili olmalı
         binding.chipBist.isChecked = true
+        updateDelayWarning(AssetType.BIST)
         
         return binding.root
     }
@@ -105,7 +106,28 @@ class MarketsFragment : Fragment() {
                 R.id.chip_fon -> AssetType.FON
                 else -> null
             }
+            updateDelayWarning(type)
             viewModel.filterByType(type)
+        }
+    }
+
+    private fun updateDelayWarning(type: AssetType?) {
+        when (type) {
+            AssetType.BIST -> {
+                binding.textDelayWarning.text = getString(R.string.delay_warning_bist)
+                binding.textDelayWarning.visibility = View.VISIBLE
+            }
+            AssetType.FON -> {
+                binding.textDelayWarning.text = getString(R.string.delay_warning_fund)
+                binding.textDelayWarning.visibility = View.VISIBLE
+            }
+            AssetType.DOVIZ, AssetType.EMTIA, AssetType.KRIPTO -> {
+                binding.textDelayWarning.text = getString(R.string.delay_warning_general)
+                binding.textDelayWarning.visibility = View.VISIBLE
+            }
+            else -> {
+                binding.textDelayWarning.visibility = View.GONE
+            }
         }
     }
 
