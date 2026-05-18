@@ -78,7 +78,7 @@ class AssetDetailViewModel @Inject constructor(
         observeUsdRate()
     }
 
-    private var usdRate: BigDecimal = BigDecimal("32.5")
+    private var usdRate: BigDecimal = BigDecimal("44.52")
 
     private fun observeUsdRate() {
         viewModelScope.launch {
@@ -88,6 +88,16 @@ class AssetDetailViewModel @Inject constructor(
                     // Refresh display if currency is TL
                     if (_uiState.value.displayCurrency == "TL") {
                         refreshDisplayPrices()
+                    }
+                } else {
+                    // Fallback: fetch directly once if DB isn't ready yet
+                    repository.getYahooPriceOnce("USDTRY=X")?.let { fetched ->
+                        if (fetched > BigDecimal.ZERO) {
+                            usdRate = fetched
+                            if (_uiState.value.displayCurrency == "TL") {
+                                refreshDisplayPrices()
+                            }
+                        }
                     }
                 }
             }
@@ -137,6 +147,8 @@ class AssetDetailViewModel @Inject constructor(
             
             val convertedHistory = if (_uiState.value.displayCurrency == "TL" && (_uiState.value.currency == "USD" || _uiState.value.symbol.endsWith("USDT") || _uiState.value.symbol.endsWith("=F"))) {
                 history.map { it.first to (it.second * usdRate.toDouble()) }
+            } else if (_uiState.value.displayCurrency == "USD" && (_uiState.value.currency == "TRY" || _uiState.value.currency == "TL")) {
+                if (usdRate.toDouble() > 0.0) history.map { it.first to (it.second / usdRate.toDouble()) } else history
             } else history
 
             _uiState.update { it.copy(history = convertedHistory, isLoading = false) }
@@ -152,6 +164,8 @@ class AssetDetailViewModel @Inject constructor(
                     
                     val displayPrice = if (_uiState.value.displayCurrency == "TL" && marketAsset.currency == "USD") {
                         marketAsset.currentPrice.multiply(usdRate)
+                    } else if (_uiState.value.displayCurrency == "USD" && (marketAsset.currency == "TRY" || marketAsset.currency == "TL")) {
+                        if (usdRate > BigDecimal.ZERO) marketAsset.currentPrice.divide(usdRate, 8, java.math.RoundingMode.HALF_UP) else marketAsset.currentPrice
                     } else marketAsset.currentPrice
 
                     _uiState.update { state ->
@@ -198,28 +212,27 @@ class AssetDetailViewModel @Inject constructor(
 
             val assetType = try { AssetType.valueOf(typeString) } catch (e: Exception) { AssetType.BIST }
             val isCash = assetType == AssetType.NAKIT
-            
-            // Get current exchange rates for normalization if needed
-            val usdRate = repository.getMarketAssetBySymbolAndTypeOnce("USDTRY=X", AssetType.DOVIZ)?.currentPrice ?: BigDecimal("32.5")
-            val eurRate = repository.getMarketAssetBySymbolAndTypeOnce("EURTRY=X", AssetType.DOVIZ)?.currentPrice ?: BigDecimal("35.2")
-            val homeCurrency = prefManager.getHomeCurrency()
 
             // Ortalama maliyet hesabı
             val newAvgCost = if (transactionType == TransactionType.BUY) {
                 if (newAmount.compareTo(BigDecimal.ZERO) > 0) {
-                    // Existing cost normalization
-                    val normalizedExistingCost = if (state.buyCurrency != homeCurrency) {
-                        // Convert old cost to new home currency
+                    // Existing cost normalization: Convert existing cost to the display currency (which enteredCost is in)
+                    val displayCurrency = state.displayCurrency
+                    val buyCurrency = state.buyCurrency
+                    
+                    val existingCostInDisplayCurrency = if (buyCurrency != displayCurrency) {
                         when {
-                            state.buyCurrency == "TRY" && homeCurrency == "USD" -> state.averageBuyPrice.divide(usdRate, 8, java.math.RoundingMode.HALF_UP)
-                            state.buyCurrency == "TRY" && homeCurrency == "EUR" -> state.averageBuyPrice.divide(eurRate, 8, java.math.RoundingMode.HALF_UP)
-                            state.buyCurrency == "USD" && homeCurrency == "TRY" -> state.averageBuyPrice.multiply(usdRate)
-                            state.buyCurrency == "EUR" && homeCurrency == "TRY" -> state.averageBuyPrice.multiply(eurRate)
+                            (buyCurrency == "TRY" || buyCurrency == "TL") && displayCurrency == "USD" -> {
+                                if (usdRate > BigDecimal.ZERO) state.averageBuyPrice.divide(usdRate, 8, java.math.RoundingMode.HALF_UP) else state.averageBuyPrice
+                            }
+                            buyCurrency == "USD" && (displayCurrency == "TRY" || displayCurrency == "TL") -> {
+                                state.averageBuyPrice.multiply(usdRate)
+                            }
                             else -> state.averageBuyPrice
                         }
                     } else state.averageBuyPrice
 
-                    val currentValue = currentAmount.multiply(normalizedExistingCost)
+                    val currentValue = currentAmount.multiply(existingCostInDisplayCurrency)
                     val newValue = enteredAmount.multiply(enteredCost)
                     val totalCost = currentValue.add(newValue)
                     totalCost.divide(newAmount, 8, java.math.RoundingMode.HALF_UP)
@@ -229,11 +242,9 @@ class AssetDetailViewModel @Inject constructor(
             }
 
             val finalCurrentPrice = if (isCash) BigDecimal.ONE else {
-                // If we are in TL mode, we need to save the base (USD) price if the asset is natively USD
-                // OR we can save the displayed price and let the repository handle it.
-                // Market assets are usually USD. Let's convert back to USD for storage if needed, 
-                // but the repository usually updates the price from API anyway.
+                // Save price in native currency
                 if (state.displayCurrency == "TL" && state.currency == "USD") state.currentPrice.divide(usdRate, 8, java.math.RoundingMode.HALF_UP)
+                else if (state.displayCurrency == "USD" && (state.currency == "TRY" || state.currency == "TL")) state.currentPrice.multiply(usdRate)
                 else state.currentPrice
             }
             

@@ -41,6 +41,8 @@ class AssetDetailFragment : Fragment() {
     private var _binding: FragmentAssetDetailBinding? = null
     private val binding get() = _binding!!
 
+    private var loadingAnimator: android.animation.ValueAnimator? = null
+
     private val viewModel: AssetDetailViewModel by viewModels()
     private val args: AssetDetailFragmentArgs by navArgs()
 
@@ -187,7 +189,7 @@ class AssetDetailFragment : Fragment() {
     }
 
     private fun updateUI(state: AssetDetailUiState) {
-        binding.progressBarChart.visibility = if (state.isLoading) View.VISIBLE else View.GONE
+        binding.progressBarChart.visibility = if (state.isLoading && state.history.isNotEmpty()) View.VISIBLE else View.GONE
         if (state.isLoading) {
             binding.priceChart.alpha = 0.5f
         } else {
@@ -258,16 +260,38 @@ class AssetDetailFragment : Fragment() {
         setupChart(state.history)
     }
 
+    private fun startLoadingAnimation() {
+        if (loadingAnimator == null) {
+            loadingAnimator = android.animation.ValueAnimator.ofFloat(0.3f, 1.0f).apply {
+                duration = 1000
+                repeatCount = android.animation.ValueAnimator.INFINITE
+                repeatMode = android.animation.ValueAnimator.REVERSE
+                addUpdateListener { animator ->
+                    _binding?.textLoading?.alpha = animator.animatedValue as Float
+                }
+            }
+        }
+        if (loadingAnimator?.isRunning == false) {
+            loadingAnimator?.start()
+        }
+    }
+
+    private fun stopLoadingAnimation() {
+        loadingAnimator?.cancel()
+        loadingAnimator = null
+    }
+
     private fun setupChart(history: List<Pair<Long, Double>>) {
         if (history.isEmpty()) {
-            if (!viewModel.uiState.value.isLoading) {
-                binding.priceChart.setNoDataText(getString(R.string.error_loading))
-                binding.priceChart.invalidate()
-            } else {
-                binding.priceChart.setNoDataText("")
-                binding.priceChart.invalidate()
-            }
+            binding.priceChart.visibility = View.INVISIBLE
+            binding.layoutChartLoading.visibility = View.VISIBLE
+            binding.priceChart.setNoDataText("")
+            startLoadingAnimation()
             return
+        } else {
+            binding.priceChart.visibility = View.VISIBLE
+            binding.layoutChartLoading.visibility = View.GONE
+            stopLoadingAnimation()
         }
 
         val entries = history.mapIndexed { index, pair ->
@@ -414,6 +438,7 @@ class AssetDetailFragment : Fragment() {
     }
 
     override fun onDestroyView() {
+        stopLoadingAnimation()
         super.onDestroyView()
         _binding = null
     }

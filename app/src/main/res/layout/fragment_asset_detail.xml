@@ -156,7 +156,39 @@
                         app:layout_constraintBottom_toBottomOf="@id/priceChart"
                         app:layout_constraintEnd_toEndOf="@id/priceChart"
                         app:layout_constraintStart_toStartOf="@id/priceChart"
-                        app:layout_constraintTop_toTopOf="@id/priceChart" />                    <com.google.android.material.button.MaterialButtonToggleGroup
+                        app:layout_constraintTop_toTopOf="@id/priceChart" />
+
+                    <LinearLayout
+                        android:id="@+id/layoutChartLoading"
+                        android:layout_width="0dp"
+                        android:layout_height="0dp"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:visibility="gone"
+                        app:layout_constraintBottom_toBottomOf="@id/priceChart"
+                        app:layout_constraintEnd_toEndOf="@id/priceChart"
+                        app:layout_constraintStart_toStartOf="@id/priceChart"
+                        app:layout_constraintTop_toTopOf="@id/priceChart">
+
+                        <ProgressBar
+                            android:id="@+id/loadingSpinner"
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:indeterminate="true"
+                            android:indeterminateTint="?attr/colorPrimary" />
+
+                        <TextView
+                            android:id="@+id/textLoading"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:text="Yükleniyor..."
+                            android:textColor="?android:attr/textColorSecondary"
+                            android:textSize="13sp"
+                            android:fontFamily="sans-serif-medium" />
+                    </LinearLayout>
+
+                    <com.google.android.material.button.MaterialButtonToggleGroup
                         android:id="@+id/chartRangeToggle"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"

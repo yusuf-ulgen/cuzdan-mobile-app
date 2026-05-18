@@ -41,7 +41,7 @@ class SymbolSearchViewModel @Inject constructor(
     val uiState: StateFlow<SymbolSearchUiState> = _uiState.asStateFlow()
 
     private var searchJob: Job? = null
-    private var usdRate: BigDecimal = BigDecimal("32.5")
+    private var usdRate: BigDecimal = BigDecimal("44.52")
 
     init {
         viewModelScope.launch {
@@ -60,8 +60,13 @@ class SymbolSearchViewModel @Inject constructor(
     }
 
     fun loadInitialSymbols(type: AssetType) {
+        val targetCurrency = if (type == AssetType.KRIPTO || type == AssetType.EMTIA) {
+            prefManager.getCryptoCurrency()
+        } else {
+            "TL"
+        }
+        _uiState.update { it.copy(currency = targetCurrency, isLoading = true, error = null) }
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
             try {
                 val marketAssets = repository.getMarketAssetsOnce(type)
                 val shouldRefresh = marketAssets.isEmpty() || (type == AssetType.NAKIT && marketAssets.size <= 1)
@@ -106,9 +111,14 @@ class SymbolSearchViewModel @Inject constructor(
             loadInitialSymbols(type)
             return
         }
+        val targetCurrency = if (type == AssetType.KRIPTO || type == AssetType.EMTIA) {
+            prefManager.getCryptoCurrency()
+        } else {
+            "TL"
+        }
         searchJob = viewModelScope.launch {
             delay(500)
-            _uiState.update { it.copy(isLoading = true) }
+            _uiState.update { it.copy(currency = targetCurrency, isLoading = true) }
             
             val allAssets = repository.getMarketAssetsOnce(type)
             val queryKeywords = query.trim().split("\\s+".toRegex())
@@ -122,7 +132,7 @@ class SymbolSearchViewModel @Inject constructor(
                     .replace("ş", "s")
                     .replace("ö", "o")
                     .replace("ç", "c")
-
+ 
                 queryKeywords.all { keyword ->
                     val normalizedKeyword = keyword.lowercase(java.util.Locale("tr", "TR"))
                         .replace("ı", "i")
