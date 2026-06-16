@@ -64,7 +64,6 @@ class NotificationsFragment : Fragment() {
             SettingItem(0, getString(R.string.settings_dark_theme), hasSwitch = true, isSwitchChecked = prefManager.getThemeMode() == "dark", iconRes = R.drawable.ic_p_theme),
             SettingItem(1, getString(R.string.settings_notifications), hasSwitch = true, isSwitchChecked = prefManager.isNotificationsEnabled(), iconRes = R.drawable.ic_p_notif),
             SettingItem(3, getString(R.string.settings_language), value = if (prefManager.getLanguage() == "tr") getString(R.string.label_turkish) else getString(R.string.label_english), iconRes = R.drawable.ic_p_lang),
-            SettingItem(4, getString(R.string.settings_currency), value = prefManager.getHomeCurrency(), iconRes = R.drawable.ic_p_cur),
             SettingItem(12, getString(R.string.nav_alerts), iconRes = R.drawable.ic_p_alert_padded),
             SettingItem(5, getString(R.string.settings_biometrics), hasSwitch = true, isSwitchChecked = prefManager.isBiometricsEnabled(), iconRes = R.drawable.ic_p_bio),
 
@@ -109,7 +108,6 @@ class NotificationsFragment : Fragment() {
     private fun handleItemClick(id: Int) {
         when (id) {
             3 -> showLanguageDialog()
-            4 -> showCurrencyDialog()
             6 -> showDeviceManagementDialog()
             7 -> showFAQDialog()
             8 -> showSupportDialog()
@@ -132,17 +130,6 @@ class NotificationsFragment : Fragment() {
                 val lang = if (which == 0) "tr" else "en"
                 prefManager.setLanguage(lang)
                 requireActivity().recreate()
-            }
-            .show()
-    }
-
-    private fun showCurrencyDialog() {
-        val currencies = arrayOf("TL", "EUR", "USD")
-        AlertDialog.Builder(requireContext())
-            .setTitle(R.string.settings_currency)
-            .setItems(currencies) { _, which ->
-                homeViewModel.setCurrency(currencies[which])
-                setupRecyclerView()
             }
             .show()
     }

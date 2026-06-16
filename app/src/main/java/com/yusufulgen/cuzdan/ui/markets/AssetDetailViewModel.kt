@@ -59,7 +59,7 @@ class AssetDetailViewModel @Inject constructor(
         val type = try { AssetType.valueOf(typeString) } catch (e: Exception) { AssetType.BIST }
         val displayCurrency = when(type) {
             AssetType.KRIPTO -> prefManager.getCryptoCurrency()
-            AssetType.EMTIA -> prefManager.getCryptoCurrency()
+            AssetType.EMTIA -> prefManager.getEmtiaCurrency()
             else -> currency
         }
 

@@ -49,6 +49,8 @@ class ReportsFragment : Fragment() {
         setupUI()
         observeState()
         
+        // Home'daki portföy değişikliklerini senkronize et
+        viewModel.syncPortfolioSelection()
         // Ensure localized strings are updated
         viewModel.refreshLocalization(requireContext())
         

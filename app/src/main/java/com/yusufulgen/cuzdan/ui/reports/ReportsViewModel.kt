@@ -58,6 +58,16 @@ class ReportsViewModel @Inject constructor(
         observeAssets()
     }
 
+    /**
+     * Home'da portföy değiştiğinde Reports'u senkronize eder.
+     */
+    fun syncPortfolioSelection() {
+        val currentPrefId = prefManager.getSelectedPortfolioId()
+        if (_selectedPortfolioId.value != currentPrefId) {
+            _selectedPortfolioId.value = currentPrefId
+        }
+    }
+
     private fun observePortfolios() {
         viewModelScope.launch {
             portfolioRepository.getAllPortfolios().collect { portfolios ->
@@ -86,8 +96,27 @@ class ReportsViewModel @Inject constructor(
                 _currentCurrency,
                 _usdRate,
                 _eurRate,
-                priceSyncManager.syncStatus
-            ) { assets, currency, usdRate, eurRate, syncStatus ->
+                priceSyncManager.syncStatus,
+                assetRepository.getMarketAssetsFlow(null) // Market fiyatlarını dinle
+            ) { array ->
+                val rawAssets = array[0] as List<Asset>
+                val currency = array[1] as String
+                val usdRate = array[2] as BigDecimal?
+                val eurRate = array[3] as BigDecimal?
+                val syncStatus = array[4] as com.yusufulgen.cuzdan.util.PriceSyncManager.SyncStatus
+                val marketAssets = (array[5] as List<com.yusufulgen.cuzdan.data.local.entity.MarketAsset>).associateBy { it.symbol to it.assetType }
+
+                // Market fiyatlarını asset'lere merge et (HomeViewModel ile aynı mantık)
+                val assets = rawAssets.map { asset ->
+                    val market = marketAssets[asset.symbol to asset.assetType]
+                    if (market != null) {
+                        asset.copy(
+                            currentPrice = market.currentPrice,
+                            dailyChangePercentage = market.dailyChangePercentage
+                        )
+                    } else asset
+                }
+
                 lastAssets = assets
                 
                 // Fetch start of day balance when portfolio changes

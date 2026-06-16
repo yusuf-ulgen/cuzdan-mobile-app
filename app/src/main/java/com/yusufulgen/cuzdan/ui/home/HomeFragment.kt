@@ -64,7 +64,7 @@ class HomeFragment : Fragment() {
                 symbol = asset.symbol,
                 name = asset.name,
                 assetType = asset.assetType.name,
-                currency = viewModel.uiState.value.currency
+                currency = asset.currency
             )
             findNavController().navigate(action)
         })

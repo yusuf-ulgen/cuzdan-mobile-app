@@ -37,7 +37,7 @@ class SymbolSearchViewModel @Inject constructor(
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(SymbolSearchUiState(currency = prefManager.getCryptoCurrency()))
+    private val _uiState = MutableStateFlow(SymbolSearchUiState(currency = "TL"))
     val uiState: StateFlow<SymbolSearchUiState> = _uiState.asStateFlow()
 
     private var searchJob: Job? = null
@@ -60,10 +60,10 @@ class SymbolSearchViewModel @Inject constructor(
     }
 
     fun loadInitialSymbols(type: AssetType) {
-        val targetCurrency = if (type == AssetType.KRIPTO || type == AssetType.EMTIA) {
-            prefManager.getCryptoCurrency()
-        } else {
-            "TL"
+        val targetCurrency = when (type) {
+            AssetType.KRIPTO -> prefManager.getCryptoCurrency()
+            AssetType.EMTIA -> prefManager.getEmtiaCurrency()
+            else -> "TL"
         }
         _uiState.update { it.copy(currency = targetCurrency, isLoading = true, error = null) }
         viewModelScope.launch {
@@ -111,10 +111,10 @@ class SymbolSearchViewModel @Inject constructor(
             loadInitialSymbols(type)
             return
         }
-        val targetCurrency = if (type == AssetType.KRIPTO || type == AssetType.EMTIA) {
-            prefManager.getCryptoCurrency()
-        } else {
-            "TL"
+        val targetCurrency = when (type) {
+            AssetType.KRIPTO -> prefManager.getCryptoCurrency()
+            AssetType.EMTIA -> prefManager.getEmtiaCurrency()
+            else -> "TL"
         }
         searchJob = viewModelScope.launch {
             delay(500)
@@ -215,7 +215,11 @@ class SymbolSearchViewModel @Inject constructor(
 
     fun toggleCurrency(type: AssetType) {
         val newCurrency = if (_uiState.value.currency == "TL") "USD" else "TL"
-        prefManager.setCryptoCurrency(newCurrency)
+        when (type) {
+            AssetType.KRIPTO -> prefManager.setCryptoCurrency(newCurrency)
+            AssetType.EMTIA -> prefManager.setEmtiaCurrency(newCurrency)
+            else -> { /* BIST/FON/DOVIZ para birimi değiştirmez */ }
+        }
         _uiState.update { it.copy(currency = newCurrency) }
         loadInitialSymbols(type)
     }

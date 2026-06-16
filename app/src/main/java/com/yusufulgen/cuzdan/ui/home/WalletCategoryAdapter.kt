@@ -49,9 +49,9 @@ class WalletCategoryAdapter(
                 imageExpandArrow.visibility = View.GONE
 
                 if (isPrivacyEnabled) {
-                    textCategoryTotal.text = "**** $currency"
+                    textCategoryTotal.text = "**** ${item.currency}"
                 } else {
-                    textCategoryTotal.text = item.totalValue.formatCurrency(currency)
+                    textCategoryTotal.text = item.totalValue.formatCurrency(item.currency)
                 }
                 textCategoryTotal.visibility = View.VISIBLE
             } else {
@@ -60,7 +60,7 @@ class WalletCategoryAdapter(
                 textCategoryChangeAbs.visibility = View.VISIBLE
                 
                 if (isPrivacyEnabled) {
-                    textCategoryTotal.text = "**** $currency"
+                    textCategoryTotal.text = "**** ${item.currency}"
                     textCategoryChangeAbs.text = "****"
                     textCategoryChangePerc.text = "%***"
                     textCategoryChangePerc.setTextColor(holder.itemView.context.getColor(com.yusufulgen.cuzdan.R.color.text_label))
@@ -75,8 +75,8 @@ class WalletCategoryAdapter(
                     }
                     val colorInt = holder.itemView.context.getColor(color)
                     
-                    textCategoryTotal.text = item.totalValue.formatCurrency(currency)
-                    textCategoryChangeAbs.text = item.totalProfitLoss.formatCurrency(currency, showSign = true)
+                    textCategoryTotal.text = item.totalValue.formatCurrency(item.currency)
+                    textCategoryChangeAbs.text = item.totalProfitLoss.formatCurrency(item.currency, showSign = true)
                     textCategoryChangePerc.text = String.format("%%%+.1f", item.profitLossPerc)
                     
                     textCategoryChangeAbs.setTextColor(colorInt)
@@ -91,7 +91,7 @@ class WalletCategoryAdapter(
             recyclerChildAssets.visibility = if (isExpanded) View.VISIBLE else View.GONE
             
             if (isExpanded) {
-                val childAdapter = WalletAssetAdapter(item.assets, isPrivacyEnabled, currency, item.totalValue, onAssetClick)
+                val childAdapter = WalletAssetAdapter(item.assets, isPrivacyEnabled, item.currency, item.totalValue, onAssetClick)
                 recyclerChildAssets.layoutManager = LinearLayoutManager(holder.itemView.context)
                 recyclerChildAssets.adapter = childAdapter
             }

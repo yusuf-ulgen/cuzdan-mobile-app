@@ -57,7 +57,8 @@ data class WalletCategorySummary(
     val profitLossPerc: java.math.BigDecimal,
     val assets: List<Asset> = emptyList(),
     val isExpanded: Boolean = false,
-    val iconRes: Int = 0
+    val iconRes: Int = 0,
+    val currency: String = "TL"
 )
 
 data class AssetDailyValues(
@@ -293,6 +294,29 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Kategori tipine göre para birimini belirler.
+     * BIST/FON/DOVIZ → her zaman TL
+     * KRIPTO → prefManager.getCryptoCurrency()
+     * EMTIA → prefManager.getEmtiaCurrency()
+     * NAKIT → her zaman TL
+     */
+    private fun getCurrencyForType(type: AssetType): String {
+        return when (type) {
+            AssetType.KRIPTO -> prefManager.getCryptoCurrency()
+            AssetType.EMTIA -> prefManager.getEmtiaCurrency()
+            else -> "TL" // BIST, FON, DOVIZ, NAKIT her zaman TL
+        }
+    }
+
+    private fun getExchangeRateForCurrency(currency: String, usdRate: BigDecimal?, eurRate: BigDecimal?): BigDecimal {
+        return when (currency) {
+            "USD" -> usdRate ?: BigDecimal("32.5")
+            "EUR" -> eurRate ?: BigDecimal("35.2")
+            else -> BigDecimal.ONE
+        }
+    }
+
     private fun calculateStats(
         assets: List<Asset>, 
         expandedCategory: AssetType?, 
@@ -303,6 +327,7 @@ class HomeViewModel @Inject constructor(
     ) {
         // Build correct locale context for labels even if flow triggers this from background
         val langContext = com.yusufulgen.cuzdan.util.LocaleHelper.setLocale(context, prefManager.getLanguage())
+        // exchangeRate for total balance display
         var exchangeRate = BigDecimal.ONE
 
         if (currency == "USD") exchangeRate = usdRate ?: BigDecimal("32.5")
@@ -399,6 +424,10 @@ class HomeViewModel @Inject constructor(
         }
 
         val categorySummaries = assets.groupBy { it.assetType }.map { (type, typeAssets) ->
+            // Her kategori kendi para birimini kullanıyor
+            val catCurrency = getCurrencyForType(type)
+            val catExchangeRate = getExchangeRateForCurrency(catCurrency, usdRate, eurRate)
+
             var catValueBase = BigDecimal.ZERO
             var catCostBase = BigDecimal.ZERO
             var catDailyProfitBase = BigDecimal.ZERO
@@ -433,8 +462,9 @@ class HomeViewModel @Inject constructor(
                     }
                 }
             }
-            val convCatValue = catValueBase.divide(exchangeRate, 2, RoundingMode.HALF_UP)
-            val convCatDailyProfit = catDailyProfitBase.divide(exchangeRate, 2, RoundingMode.HALF_UP)
+            // Kategori kendi exchange rate'i ile dönüştür
+            val convCatValue = catValueBase.divide(catExchangeRate, 2, RoundingMode.HALF_UP)
+            val convCatDailyProfit = catDailyProfitBase.divide(catExchangeRate, 2, RoundingMode.HALF_UP)
             
             // Weighted daily change % for the category
             val catDailyPerc = if (catPrevDayValueBase > BigDecimal.ZERO) {
@@ -461,8 +491,9 @@ class HomeViewModel @Inject constructor(
                     "EUR" -> eurRate ?: BigDecimal("35.2")
                     else -> BigDecimal.ONE
                 }
-                val finalPriceRate = assetRate.divide(exchangeRate, 12, RoundingMode.HALF_UP)
-                val finalCostRate = costRate.divide(exchangeRate, 12, RoundingMode.HALF_UP)
+                // Kategori kendi exchange rate'i ile dönüştür
+                val finalPriceRate = assetRate.divide(catExchangeRate, 12, RoundingMode.HALF_UP)
+                val finalCostRate = costRate.divide(catExchangeRate, 12, RoundingMode.HALF_UP)
                 
                 var adjustedDailyPerc = asset.dailyChangePercentage
                 if (com.yusufulgen.cuzdan.util.MarketStatusUtils.isMarketClosedToday(asset.assetType)) {
@@ -472,7 +503,7 @@ class HomeViewModel @Inject constructor(
                 asset.copy(
                     currentPrice = asset.currentPrice.multiply(finalPriceRate),
                     averageBuyPrice = asset.averageBuyPrice.multiply(finalCostRate),
-                    currency = currency,
+                    currency = catCurrency,
                     dailyChangePercentage = adjustedDailyPerc
                 )
             }
@@ -485,7 +516,8 @@ class HomeViewModel @Inject constructor(
                 profitLossPerc = catDailyPerc,
                 assets = convertedAssets,
                 isExpanded = expandedCategory == type,
-                iconRes = getCategoryIcon(type)
+                iconRes = getCategoryIcon(type),
+                currency = catCurrency
             )
         }.toMutableList()
 
@@ -493,12 +525,16 @@ class HomeViewModel @Inject constructor(
         categorySummaries.removeAll { it.assets.isEmpty() || it.assets.all { a -> a.amount.compareTo(BigDecimal.ZERO) == 0 } }
 
         // Inject 'Nakit' (Idle Cash) category as the first item if there is idle cash
-        if (idleCashConv > BigDecimal.ZERO) {
+        // Nakit her zaman TL
+        val nakitCurrency = getCurrencyForType(AssetType.NAKIT)
+        val nakitExchangeRate = getExchangeRateForCurrency(nakitCurrency, usdRate, eurRate)
+        val idleCashForNakit = idleCashTry.divide(nakitExchangeRate, 2, RoundingMode.HALF_UP)
+        if (idleCashForNakit > BigDecimal.ZERO) {
             val existingNakitIndex = categorySummaries.indexOfFirst { it.type == AssetType.NAKIT }
             if (existingNakitIndex != -1) {
                 val existing = categorySummaries[existingNakitIndex]
                 categorySummaries[existingNakitIndex] = existing.copy(
-                    totalValue = existing.totalValue.add(idleCashConv),
+                    totalValue = existing.totalValue.add(idleCashForNakit),
                     totalProfitLoss = existing.totalProfitLoss,
                     profitLossPerc = existing.profitLossPerc
                 )
@@ -506,12 +542,13 @@ class HomeViewModel @Inject constructor(
                 categorySummaries.add(WalletCategorySummary(
                     type = AssetType.NAKIT,
                     title = getLocalizedAssetTypeName(AssetType.NAKIT, langContext),
-                    totalValue = idleCashConv,
+                    totalValue = idleCashForNakit,
                     totalProfitLoss = BigDecimal.ZERO,
                     profitLossPerc = BigDecimal.ZERO,
                     assets = emptyList(),
                     isExpanded = false,
-                    iconRes = R.drawable.nakit
+                    iconRes = R.drawable.nakit,
+                    currency = nakitCurrency
                 ))
             }
         }
@@ -564,7 +601,9 @@ class HomeViewModel @Inject constructor(
             val totalValueWithNakitTry = totalBalanceBase.add(idleCashTry)
             if (totalValueWithNakitTry > BigDecimal.ZERO) {
                 categorySummaries.forEach { summary ->
-                    val weight = (summary.totalValue.multiply(exchangeRate)).divide(totalValueWithNakitTry, 4, RoundingMode.HALF_UP).toFloat()
+                    // Her kategorinin kendi exchange rate'ini kullanarak TRY base'e geri dönüştür
+                    val catRate = getExchangeRateForCurrency(summary.currency, usdRate, eurRate)
+                    val weight = (summary.totalValue.multiply(catRate)).divide(totalValueWithNakitTry, 4, RoundingMode.HALF_UP).toFloat()
                     segments.add(DonutChartView.Segment(weight, getCategoryColor(summary.type), summary.title))
                 }
             }

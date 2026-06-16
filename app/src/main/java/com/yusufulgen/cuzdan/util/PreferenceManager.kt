@@ -65,6 +65,14 @@ class PreferenceManager @Inject constructor(
         return prefs.getString("crypto_currency", "TL") ?: "TL"
     }
 
+    fun setEmtiaCurrency(currency: String) {
+        prefs.edit().putString("emtia_currency", currency).apply()
+    }
+
+    fun getEmtiaCurrency(): String {
+        return prefs.getString("emtia_currency", "TL") ?: "TL"
+    }
+
     fun setLanguage(language: String) {
         prefs.edit().putString("language", language).apply()
     }
