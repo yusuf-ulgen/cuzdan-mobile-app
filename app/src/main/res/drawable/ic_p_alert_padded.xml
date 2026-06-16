@@ -1,6 +1,0 @@
-<inset xmlns:android="http://schemas.android.com/apk/res/android"
-    android:drawable="@drawable/ic_p_alert_vector"
-    android:insetTop="70dp"
-    android:insetBottom="70dp"
-    android:insetLeft="70dp"
-    android:insetRight="70dp" />

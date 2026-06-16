@@ -64,7 +64,7 @@ class NotificationsFragment : Fragment() {
             SettingItem(0, getString(R.string.settings_dark_theme), hasSwitch = true, isSwitchChecked = prefManager.getThemeMode() == "dark", iconRes = R.drawable.ic_p_theme),
             SettingItem(1, getString(R.string.settings_notifications), hasSwitch = true, isSwitchChecked = prefManager.isNotificationsEnabled(), iconRes = R.drawable.ic_p_notif),
             SettingItem(3, getString(R.string.settings_language), value = if (prefManager.getLanguage() == "tr") getString(R.string.label_turkish) else getString(R.string.label_english), iconRes = R.drawable.ic_p_lang),
-            SettingItem(12, getString(R.string.nav_alerts), iconRes = R.drawable.ic_p_alert_padded),
+            SettingItem(12, getString(R.string.nav_alerts), iconRes = R.drawable.ic_p_alert_vector),
             SettingItem(5, getString(R.string.settings_biometrics), hasSwitch = true, isSwitchChecked = prefManager.isBiometricsEnabled(), iconRes = R.drawable.ic_p_bio),
 
             SettingItem(6, getString(R.string.settings_device_management), iconRes = R.drawable.ic_p_res),
