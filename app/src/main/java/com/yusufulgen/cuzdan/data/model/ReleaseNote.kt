@@ -13,7 +13,7 @@ object ReleaseNotesProvider {
                 "Kategori bazlı bağımsız para birimi yönetimi (Para Birimi İzolasyonu) getirildi.",
                 "Raporlar sayfasındaki fiyat ve portföy senkronizasyonu hataları giderildi.",
                 "İşlemler (Ayarlar) sayfası ikonları dinamik vektör formatına geçirildi; hem açık hem koyu temaya tam uyumlu hale getirildi.",
-                "Gereksiz kaynaklar temizlenerek uygulama boyutu yaklaşık 20 MB hafifletildi."
+                "Gereksiz kaynaklar temizlenerek uygulama boyutu hafifletildi."
             )
         ),
         ReleaseNote(
