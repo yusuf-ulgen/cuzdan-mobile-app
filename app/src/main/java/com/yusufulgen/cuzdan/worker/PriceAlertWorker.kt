@@ -29,6 +29,11 @@ class PriceAlertWorker @AssistedInject constructor(
             val notificationsEnabled = prefManager.isNotificationsEnabled()
 
             activeAlerts.forEach { alert ->
+                // Skip if the market is closed right now
+                if (!com.yusufulgen.cuzdan.util.MarketStatusUtils.isMarketOpenNow(alert.assetType)) {
+                    return@forEach
+                }
+
                 // Refresh price for the asset
                 // Note: Simplified logic, we assume repository has a way to get latest price once
                 val currentPrice = repository.getYahooPriceOnce(alert.symbol) 

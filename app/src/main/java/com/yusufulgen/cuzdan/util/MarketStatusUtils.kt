@@ -59,4 +59,33 @@ object MarketStatusUtils {
             else -> false
         }
     }
+
+    /**
+     * Belirtilen varlık türü için şu an seansın/piyasanın açık olup olmadığını döndürür.
+     */
+    fun isMarketOpenNow(type: AssetType): Boolean {
+        val calendar = Calendar.getInstance()
+        val dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
+        val isWeekend = dayOfWeek == Calendar.SATURDAY || dayOfWeek == Calendar.SUNDAY
+
+        return when (type) {
+            AssetType.BIST -> {
+                if (isWeekend || isTurkishHoliday()) return false
+                val hour = calendar.get(Calendar.HOUR_OF_DAY)
+                val minute = calendar.get(Calendar.MINUTE)
+                val timeInMinutes = hour * 60 + minute
+                
+                val openTime = 9 * 60 + 55    // 09:55
+                val closeTime = 18 * 60 + 15   // 18:15
+                
+                timeInMinutes in openTime..closeTime
+            }
+            AssetType.DOVIZ, AssetType.EMTIA -> {
+                // Forex / emtia hafta sonları kapalıdır, hafta içi 24 saat açıktır.
+                !isWeekend
+            }
+            // Kripto ve Nakit her zaman açık/geçerli kabul edilir
+            else -> true
+        }
+    }
 }
