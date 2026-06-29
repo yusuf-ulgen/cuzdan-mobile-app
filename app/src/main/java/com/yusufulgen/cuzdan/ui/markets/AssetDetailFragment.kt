@@ -101,6 +101,8 @@ class AssetDetailFragment : Fragment() {
                 onAlertSet = { alert ->
                     viewModel.setPriceAlert(alert)
                     showToast(R.string.toast_alert_created)
+                    val workRequest = androidx.work.OneTimeWorkRequestBuilder<com.yusufulgen.cuzdan.worker.PriceAlertWorker>().build()
+                    androidx.work.WorkManager.getInstance(requireContext()).enqueue(workRequest)
                 }
             )
             bottomSheet.show(childFragmentManager, PriceAlertBottomSheet.TAG)

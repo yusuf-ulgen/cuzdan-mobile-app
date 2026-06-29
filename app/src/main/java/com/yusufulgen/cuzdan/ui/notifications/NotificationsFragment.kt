@@ -41,13 +41,21 @@ class NotificationsFragment : Fragment() {
     private var _binding: FragmentNotificationsBinding? = null
     private val binding get() = _binding!!
 
+    private val requestPermissionLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        prefManager.setNotificationsEnabled(isGranted)
+        setupRecyclerView()
+        if (!isGranted) {
+            Toast.makeText(requireContext(), "Bildirim izni verilmedi. Alarmlar çalışmayacaktır.", Toast.LENGTH_LONG).show()
+        }
+    }
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
     }
 
-
     override fun onCreateView(
-
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
@@ -60,9 +68,18 @@ class NotificationsFragment : Fragment() {
     }
 
     private fun setupRecyclerView() {
+        val hasNotificationPermission = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            androidx.core.content.ContextCompat.checkSelfPermission(
+                requireContext(),
+                android.Manifest.permission.POST_NOTIFICATIONS
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        } else {
+            true
+        }
+
         val settings = listOf(
             SettingItem(0, getString(R.string.settings_dark_theme), hasSwitch = true, isSwitchChecked = prefManager.getThemeMode() == "dark", iconRes = R.drawable.ic_p_theme),
-            SettingItem(1, getString(R.string.settings_notifications), hasSwitch = true, isSwitchChecked = prefManager.isNotificationsEnabled(), iconRes = R.drawable.ic_p_notif),
+            SettingItem(1, getString(R.string.settings_notifications), hasSwitch = true, isSwitchChecked = prefManager.isNotificationsEnabled() && hasNotificationPermission, iconRes = R.drawable.ic_p_notif),
             SettingItem(3, getString(R.string.settings_language), value = if (prefManager.getLanguage() == "tr") getString(R.string.label_turkish) else getString(R.string.label_english), iconRes = R.drawable.ic_p_lang),
             SettingItem(12, getString(R.string.nav_alerts), iconRes = R.drawable.ic_p_alert_vector),
             SettingItem(5, getString(R.string.settings_biometrics), hasSwitch = true, isSwitchChecked = prefManager.isBiometricsEnabled(), iconRes = R.drawable.ic_p_bio),
@@ -91,13 +108,30 @@ class NotificationsFragment : Fragment() {
         }
     }
 
+    private fun checkAndRequestNotificationPermission() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            if (androidx.core.content.ContextCompat.checkSelfPermission(
+                    requireContext(),
+                    android.Manifest.permission.POST_NOTIFICATIONS
+                ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+            ) {
+                requestPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+    }
+
     private fun handleSwitchChange(id: Int, isChecked: Boolean) {
         when (id) {
             0 -> {
                 prefManager.setThemeMode(if (isChecked) "dark" else "light")
                 requireActivity().recreate()
             }
-            1 -> prefManager.setNotificationsEnabled(isChecked)
+            1 -> {
+                prefManager.setNotificationsEnabled(isChecked)
+                if (isChecked) {
+                    checkAndRequestNotificationPermission()
+                }
+            }
 
             5 -> {
                 prefManager.setBiometricsEnabled(isChecked)

@@ -9,6 +9,9 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import java.math.BigDecimal
 import javax.inject.Inject
 
 data class AlertsUiState(
@@ -18,7 +21,7 @@ data class AlertsUiState(
 
 @HiltViewModel
 class AlertsViewModel @Inject constructor(
-    repository: AssetRepository
+    private val repository: AssetRepository
 ) : ViewModel() {
     val uiState: StateFlow<AlertsUiState> =
         repository.getAllPriceAlerts()
@@ -29,5 +32,21 @@ class AlertsViewModel @Inject constructor(
                 )
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AlertsUiState())
+
+    fun deleteAlert(alert: PriceAlert) {
+        viewModelScope.launch {
+            repository.deletePriceAlert(alert)
+        }
+    }
+
+    fun updateAlert(alert: PriceAlert) {
+        viewModelScope.launch {
+            repository.updatePriceAlert(alert)
+        }
+    }
+
+    suspend fun getCurrentPrice(symbol: String): BigDecimal? {
+        return repository.getLatestPrice(symbol).first()
+    }
 }
 

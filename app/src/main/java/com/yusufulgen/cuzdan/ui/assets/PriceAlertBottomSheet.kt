@@ -18,6 +18,7 @@ class PriceAlertBottomSheet(
     private val name: String,
     private val assetType: AssetType,
     private val currentPrice: BigDecimal,
+    private val existingAlert: PriceAlert? = null,
     private val onAlertSet: (PriceAlert) -> Unit
 ) : BottomSheetDialogFragment() {
 
@@ -39,6 +40,18 @@ class PriceAlertBottomSheet(
         binding.textAssetInfo.text = "$symbol - $name"
         binding.textCurrentPriceValue.text = currentPrice.formatCurrency()
 
+        if (existingAlert != null) {
+            binding.textTitle.text = getString(R.string.alert_edit_title)
+            binding.editTargetPrice.setText(existingAlert.targetPrice.toPlainString())
+            val checkedId = when (existingAlert.condition) {
+                PriceAlertCondition.ABOVE -> R.id.btn_above
+                PriceAlertCondition.EQUALS -> R.id.btn_equals
+                PriceAlertCondition.BELOW -> R.id.btn_below
+            }
+            binding.toggleCondition.check(checkedId)
+            binding.btnSaveAlert.text = getString(R.string.alert_update)
+        }
+
         binding.btnSaveAlert.setOnClickListener {
             val targetStr = binding.editTargetPrice.text.toString()
             if (targetStr.isBlank()) {
@@ -58,13 +71,23 @@ class PriceAlertBottomSheet(
                 else -> PriceAlertCondition.BELOW
             }
 
-            val alert = PriceAlert(
-                symbol = symbol,
-                name = name,
-                assetType = assetType,
-                targetPrice = targetPrice,
-                condition = condition
-            )
+            val alert = if (existingAlert != null) {
+                existingAlert.copy(
+                    targetPrice = targetPrice,
+                    condition = condition,
+                    baselinePrice = null,
+                    isTriggered = false,
+                    isEnabled = true
+                )
+            } else {
+                PriceAlert(
+                    symbol = symbol,
+                    name = name,
+                    assetType = assetType,
+                    targetPrice = targetPrice,
+                    condition = condition
+                )
+            }
 
             onAlertSet(alert)
             dismiss()

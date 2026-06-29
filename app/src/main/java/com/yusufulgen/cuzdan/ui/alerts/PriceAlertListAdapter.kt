@@ -6,7 +6,10 @@ import androidx.recyclerview.widget.RecyclerView
 import com.yusufulgen.cuzdan.data.local.entity.PriceAlert
 import com.yusufulgen.cuzdan.databinding.ItemPriceAlertBinding
 
-class PriceAlertListAdapter : RecyclerView.Adapter<PriceAlertListAdapter.VH>() {
+class PriceAlertListAdapter(
+    private val onEditClick: (PriceAlert) -> Unit,
+    private val onDeleteClick: (PriceAlert) -> Unit
+) : RecyclerView.Adapter<PriceAlertListAdapter.VH>() {
 
     private var items: List<PriceAlert> = emptyList()
 
@@ -17,7 +20,7 @@ class PriceAlertListAdapter : RecyclerView.Adapter<PriceAlertListAdapter.VH>() {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
         val binding = ItemPriceAlertBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        return VH(binding)
+        return VH(binding, onEditClick, onDeleteClick)
     }
 
     override fun getItemCount(): Int = items.size
@@ -26,7 +29,11 @@ class PriceAlertListAdapter : RecyclerView.Adapter<PriceAlertListAdapter.VH>() {
         holder.bind(items[position])
     }
 
-    class VH(private val binding: ItemPriceAlertBinding) : RecyclerView.ViewHolder(binding.root) {
+    class VH(
+        private val binding: ItemPriceAlertBinding,
+        private val onEditClick: (PriceAlert) -> Unit,
+        private val onDeleteClick: (PriceAlert) -> Unit
+    ) : RecyclerView.ViewHolder(binding.root) {
         fun bind(item: PriceAlert) {
             binding.textName.text = item.name
             binding.textSymbol.text = item.symbol
@@ -36,6 +43,9 @@ class PriceAlertListAdapter : RecyclerView.Adapter<PriceAlertListAdapter.VH>() {
                 else -> "="
             }
             binding.textTarget.text = "$condition ${item.targetPrice}"
+            
+            binding.btnEdit.setOnClickListener { onEditClick(item) }
+            binding.btnDelete.setOnClickListener { onDeleteClick(item) }
         }
     }
 }

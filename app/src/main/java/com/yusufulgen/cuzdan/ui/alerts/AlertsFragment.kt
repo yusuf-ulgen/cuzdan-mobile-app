@@ -15,6 +15,12 @@ import com.yusufulgen.cuzdan.databinding.FragmentAlertsBinding
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 
+import com.yusufulgen.cuzdan.data.local.entity.PriceAlert
+import com.yusufulgen.cuzdan.ui.assets.PriceAlertBottomSheet
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import com.yusufulgen.cuzdan.worker.PriceAlertWorker
+
 @AndroidEntryPoint
 class AlertsFragment : Fragment() {
 
@@ -22,8 +28,20 @@ class AlertsFragment : Fragment() {
     private val binding get() = _binding!!
 
     private val viewModel: AlertsViewModel by viewModels()
-    private val activeAdapter = PriceAlertListAdapter()
-    private val triggeredAdapter = PriceAlertListAdapter()
+    
+    private val activeAdapter by lazy {
+        PriceAlertListAdapter(
+            onEditClick = { alert -> onEditAlert(alert) },
+            onDeleteClick = { alert -> onDeleteAlert(alert) }
+        )
+    }
+    
+    private val triggeredAdapter by lazy {
+        PriceAlertListAdapter(
+            onEditClick = { alert -> onEditAlert(alert) },
+            onDeleteClick = { alert -> onDeleteAlert(alert) }
+        )
+    }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentAlertsBinding.inflate(inflater, container, false)
@@ -79,6 +97,36 @@ class AlertsFragment : Fragment() {
         } else {
             getString(R.string.empty_triggered_alerts)
         }
+    }
+
+    private fun onEditAlert(alert: PriceAlert) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val currentPrice = viewModel.getCurrentPrice(alert.symbol) ?: java.math.BigDecimal.ZERO
+            val bottomSheet = PriceAlertBottomSheet(
+                symbol = alert.symbol,
+                name = alert.name,
+                assetType = alert.assetType,
+                currentPrice = currentPrice,
+                existingAlert = alert,
+                onAlertSet = { updatedAlert ->
+                    viewModel.updateAlert(updatedAlert)
+                    val workRequest = OneTimeWorkRequestBuilder<PriceAlertWorker>().build()
+                    WorkManager.getInstance(requireContext()).enqueue(workRequest)
+                }
+            )
+            bottomSheet.show(childFragmentManager, PriceAlertBottomSheet.TAG)
+        }
+    }
+
+    private fun onDeleteAlert(alert: PriceAlert) {
+        androidx.appcompat.app.AlertDialog.Builder(requireContext())
+            .setTitle(getString(R.string.alert_delete_title))
+            .setMessage(getString(R.string.alert_delete_confirm))
+            .setPositiveButton(getString(R.string.dialog_confirm)) { _, _ ->
+                viewModel.deleteAlert(alert)
+            }
+            .setNegativeButton(getString(R.string.dialog_cancel), null)
+            .show()
     }
 
     override fun onDestroyView() {

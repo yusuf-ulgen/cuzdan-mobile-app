@@ -139,6 +139,11 @@
     <string name="alert_save">ALARM KUR</string>
     <string name="alert_error_price">Fiyat giriniz</string>
     <string name="alert_error_invalid">Geçersiz fiyat</string>
+    <string name="alert_edit_title">Fiyat Alarmını Düzenle</string>
+    <string name="alert_update">ALARM GÜNCELLE</string>
+    <string name="alert_delete_title">Alarmı Sil</string>
+    <string name="alert_delete_confirm">Bu alarmı silmek istediğinize emin misiniz?</string>
+    <string name="alert_notification_title">Fiyat Alarmı Tetiklendi</string>
 
     <!-- Asset Detail -->
     <string name="detail_title">Varlık Detayı</string>
