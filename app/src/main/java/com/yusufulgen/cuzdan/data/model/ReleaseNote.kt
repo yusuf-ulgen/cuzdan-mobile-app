@@ -8,6 +8,15 @@ data class ReleaseNote(
 object ReleaseNotesProvider {
     val notes = listOf(
         ReleaseNote(
+            version = "1.6",
+            features = listOf(
+                "Fiyat alarmları daha kararlı çalışacak şekilde iyileştirildi.",
+                "Kurduğunuz fiyat alarmlarını artık kolayca düzenleyebilir veya silebilirsiniz.",
+                "Fiyat bildirimlerini kaçırmamanız için bildirim izinleri ve görünümü güncellendi.",
+                "Alarmların sadece piyasaların açık olduğu saatlerde çalışması sağlanarak gereksiz bildirimlerin önüne geçildi."
+            )
+        ),
+        ReleaseNote(
             version = "1.5",
             features = listOf(
                 "Kategori bazlı bağımsız para birimi yönetimi (Para Birimi İzolasyonu) getirildi.",
