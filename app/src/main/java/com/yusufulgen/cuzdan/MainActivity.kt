@@ -125,6 +125,9 @@ class MainActivity : AppCompatActivity() {
         // Fix icon size for PNG-based navigation icons (square assets in drawable)
         navView.itemIconSize = resources.getDimensionPixelSize(R.dimen.nav_icon_size)
 
+        // Servisi her açılışta tetikle (Görünürlüğü ve çalışmayı garanti altına alır)
+        startPriceSyncService()
+
         if (!prefManager.isAgreementAccepted()) {
             checkUserAgreement()
         } else {
@@ -132,6 +135,15 @@ class MainActivity : AppCompatActivity() {
         }
 
         updateManager.checkForUpdates(this)
+    }
+
+    private fun startPriceSyncService() {
+        val serviceIntent = Intent(this, PriceSyncService::class.java)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            startForegroundService(serviceIntent)
+        } else {
+            startService(serviceIntent)
+        }
     }
 
     private fun updateBottomNavIcons(navView: BottomNavigationView, selectedId: Int) {
