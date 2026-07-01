@@ -68,8 +68,11 @@ interface MarketAssetDao {
     @Query("DELETE FROM market_assets WHERE assetType = 'DOVIZ' AND (name LIKE '%Türk Lirası%' OR name LIKE '%Turkish Lira%' OR name = 'USD/TRY' OR symbol = 'TRY' OR symbol = 'TRY=X')")
     suspend fun deleteProblematicDoviz()
     
-    @Query("DELETE FROM market_assets WHERE assetType = 'BIST' AND symbol LIKE '%.IS'")
-    suspend fun cleanStaleBistSymbols()
+    // NOT: Bu sorgu artık kullanılmıyor - tüm BIST sembolleri zaten .IS ile bitiyor,
+    // dolayısıyla 'LIKE %.IS' tüm BIST veritabanını siliyordu. Temizleme refreshBistIncrementally
+    // içinde sembol bazında yapılmaktadır.
+    @Query("SELECT COUNT(*) FROM market_assets WHERE 1=0")
+    suspend fun cleanStaleBistSymbols(): Int
 
     @Query("DELETE FROM market_assets WHERE assetType = 'KRIPTO' AND symbol NOT LIKE '%USDT'")
     suspend fun deleteNonUsdtCrypto()
