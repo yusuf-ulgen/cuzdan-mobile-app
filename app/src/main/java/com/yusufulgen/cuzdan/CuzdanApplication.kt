@@ -1,10 +1,13 @@
 package com.yusufulgen.cuzdan
 
 import android.app.Application
+import android.content.Intent
+import android.os.Build
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.decode.SvgDecoder
 import androidx.hilt.work.HiltWorkerFactory
+import androidx.work.BackoffPolicy
 import androidx.work.Configuration
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -39,48 +42,68 @@ class CuzdanApplication : Application(), Configuration.Provider, ImageLoaderFact
         super.onCreate()
         NotificationHelper.createNotificationChannel(this)
         setupPeriodicWork()
+        startPriceSyncService()
     }
 
     private fun setupPeriodicWork() {
+        // Sadece internet bağlantısı yeterli — batarya kısıtı kaldırıldı
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
-            .setRequiresBatteryNotLow(true)
             .build()
 
-        val workRequest = PeriodicWorkRequestBuilder<PriceSyncWorker>(15, TimeUnit.MINUTES)
+        // PriceSyncWorker: 15 dakikada bir, hata olursa 5 dk sonra tekrar dene
+        val syncWork = PeriodicWorkRequestBuilder<PriceSyncWorker>(15, TimeUnit.MINUTES)
             .setConstraints(constraints)
+            .setBackoffCriteria(BackoffPolicy.LINEAR, 5, TimeUnit.MINUTES)
             .build()
-        
+
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             "PriceSyncWork",
             ExistingPeriodicWorkPolicy.UPDATE,
-            workRequest
+            syncWork
         )
 
-        val alertWorkRequest = PeriodicWorkRequestBuilder<PriceAlertWorker>(15, TimeUnit.MINUTES)
+        // PriceAlertWorker: 15 dakikada bir (WorkManager → güvenlik ağı)
+        val alertWork = PeriodicWorkRequestBuilder<PriceAlertWorker>(15, TimeUnit.MINUTES)
             .setConstraints(constraints)
+            .setBackoffCriteria(BackoffPolicy.LINEAR, 5, TimeUnit.MINUTES)
             .build()
 
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             "PriceAlertWork",
             ExistingPeriodicWorkPolicy.UPDATE,
-            alertWorkRequest
+            alertWork
         )
+    }
+
+    /**
+     * Foreground Service'i başlatır.
+     * Android 8+ için startForegroundService() gerekli.
+     * Servis, uygulama kapansa bile çalışmaya devam eder.
+     */
+    private fun startPriceSyncService() {
+        val serviceIntent = Intent(this, PriceSyncService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(serviceIntent)
+        } else {
+            startService(serviceIntent)
+        }
     }
 
     private fun calculateInitialDelayToNineAM(): Long {
         val calendar = java.util.Calendar.getInstance()
         val now = calendar.timeInMillis
-        
+
         calendar.set(java.util.Calendar.HOUR_OF_DAY, 9)
         calendar.set(java.util.Calendar.MINUTE, 0)
         calendar.set(java.util.Calendar.SECOND, 0)
         calendar.set(java.util.Calendar.MILLISECOND, 0)
-        
+
         if (calendar.timeInMillis <= now) {
             calendar.add(java.util.Calendar.DAY_OF_YEAR, 1)
         }
-        
+
         return calendar.timeInMillis - now
     }
 }
+

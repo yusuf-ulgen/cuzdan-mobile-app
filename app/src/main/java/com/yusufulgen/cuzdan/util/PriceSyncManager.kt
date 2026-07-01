@@ -41,10 +41,33 @@ class PriceSyncManager @Inject constructor(
     )
 
     fun startPolling() {
+        // Uygulama açılır açılmaz anlık sync yap (Paramla yaklaşımı: Open = Fresh)
+        scope.launch {
+            initialSync()
+        }
         startBistPolling()
         startCryptoPolling()
         startFundPolling()
         startForexCommodityPolling()
+    }
+
+    /**
+     * Uygulama açılınca hemen çalışır — polling döngüleri başlamadan önce
+     * kripto ve hisse fiyatlarını paralel olarak çeker.
+     * Room Flow'ları otomatik güncellendiğinden UI anında yenilenir.
+     */
+    private suspend fun initialSync() {
+        try {
+            kotlinx.coroutines.coroutineScope {
+                launch { repository.refreshCryptoPrices().collect { } }
+                launch { repository.refreshYahooPrices().collect { } }
+            }
+            _syncStatus.value = SyncStatus(lastUpdate = System.currentTimeMillis(), isOffline = false)
+            Log.d("PriceSyncManager", "Initial sync completed")
+        } catch (e: Exception) {
+            _syncStatus.value = _syncStatus.value.copy(isOffline = true)
+            Log.e("PriceSyncManager", "Initial sync error: ${e.message}")
+        }
     }
 
     fun stopPolling() {

@@ -4,14 +4,19 @@ import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.yusufulgen.cuzdan.data.local.entity.AssetType
 import com.yusufulgen.cuzdan.data.repository.AssetRepository
 import com.yusufulgen.cuzdan.data.repository.PortfolioRepository
-import com.yusufulgen.cuzdan.data.local.entity.AssetType
-import com.yusufulgen.cuzdan.util.Resource
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.collect
 
+/**
+ * WorkManager güvenlik ağı — Foreground Service durduğunda devreye girer.
+ * Her 15 dakikada bir çalışır, tüm fiyat güncellemelerini paralel yapar.
+ */
 @HiltWorker
 class PriceSyncWorker @AssistedInject constructor(
     @Assisted context: Context,
@@ -22,37 +27,22 @@ class PriceSyncWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result {
         return try {
-            // 1. Refresh all market assets
-            assetRepository.refreshMarketAssets(null).collect { /* Handled by Flow */ }
-            
-            // 2. Refresh specifically owned assets to ensure persistence
-            assetRepository.refreshCryptoPrices().collect { }
-            assetRepository.refreshYahooPrices().collect { }
-            assetRepository.refreshOwnedFundPrices().collect { }
-
-            // 3. Significant change notification
-            // Detect if any portfolio has a daily change > 3% or < -3%
-            checkAndNotifySignificantChanges()
-
+            // Tüm refresh işlemlerini paralel çalıştır
+            coroutineScope {
+                val cryptoJob = async { assetRepository.refreshCryptoPrices().collect { } }
+                val yahooJob  = async { assetRepository.refreshYahooPrices().collect { } }
+                val fundJob   = async { assetRepository.refreshOwnedFundPrices().collect { } }
+                val marketJob = async { assetRepository.refreshMarketAssets(null).collect { } }
+                cryptoJob.await()
+                yahooJob.await()
+                fundJob.await()
+                marketJob.await()
+            }
             Result.success()
         } catch (e: Exception) {
             e.printStackTrace()
+            // Ağ hatası olursa backoff policy'ye göre yeniden dene
             Result.retry()
         }
-    }
-
-    private suspend fun checkAndNotifySignificantChanges() {
-        val portfolios = portfolioRepository.getIncludedPortfoliosOnce()
-        portfolios.forEach { portfolio ->
-            // In a real app, we would calculate this more precisely.
-            // For now, if daily change (if available) is large, notify.
-            // Note: Since HomeViewModel handles the complex aggregation, 
-            // we can just check if the total portfolio value moved significantly compared to last snapshot.
-            // But to keep it simple and immediate, we check for assets.
-        }
-        
-        // Let's implement a simple version: if a portfolio value exists in history for today, compare it.
-        // For now, let's just use a placeholder for "Significant movement detected"
-        // if user has any alerts set, PriceAlertWorker already handles specific targets.
     }
 }

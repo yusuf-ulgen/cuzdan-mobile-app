@@ -8,6 +8,15 @@ data class ReleaseNote(
 object ReleaseNotesProvider {
     val notes = listOf(
         ReleaseNote(
+            version = "1.7",
+            features = listOf(
+                "Uygulama açılır açılmaz fiyatların en güncel halinin ekrana yansıması sağlandı (Anlık Eşitleme).",
+                "Arka planda kesintisiz fiyat takibi ve alarmlar için servis altyapısı (Foreground Service) entegre edildi.",
+                "Telefon yeniden başlatıldığında takibin ve bildirimlerin otomatik olarak devam etmesi sağlandı (Boot Alıcısı).",
+                "Batarya optimizasyonu kısıtlamaları esnetilerek arka plan bildirim kararlılığı artırıldı."
+            )
+        ),
+        ReleaseNote(
             version = "1.6",
             features = listOf(
                 "Fiyat alarmları daha kararlı çalışacak şekilde iyileştirildi.",
