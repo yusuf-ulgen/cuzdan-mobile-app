@@ -8,6 +8,13 @@ data class ReleaseNote(
 object ReleaseNotesProvider {
     val notes = listOf(
         ReleaseNote(
+            version = "1.8",
+            features = listOf(
+                "BIST hisse listesi güncellenerek yeni semboller ve halka arzlar eklendi.",
+                "BIST sembollerinin veritabanından hatalı silinmesine neden olan kritik bir hata giderildi."
+            )
+        ),
+        ReleaseNote(
             version = "1.7",
             features = listOf(
                 "Uygulama açılır açılmaz fiyatların en güncel halinin ekrana yansıması sağlandı (Anlık Eşitleme).",
